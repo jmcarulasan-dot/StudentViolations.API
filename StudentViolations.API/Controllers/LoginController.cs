@@ -1,12 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging; // Add logging
+using Microsoft.Extensions.Logging;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using System.Threading.Tasks;
-using System.Linq; // Make sure to include this
+using System.Linq;
 using System;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using System.Data.SqlClient; 
+using Microsoft.Extensions.Configuration; 
 
 namespace StudentViolations.API.Controllers
 {
@@ -14,32 +16,47 @@ namespace StudentViolations.API.Controllers
     [Route("[controller]")]
     public class LoginController : ControllerBase
     {
-        ILoginRepository loginRepository;
-        private readonly ILogger<LoginController> _logger; // Add logger
+        private readonly ILoginRepository _loginRepository; // Changed to private readonly
+        private readonly ILogger<LoginController> _logger;
+        private readonly string _connectionString; // Add this
 
-        public LoginController(ILoginRepository login, ILogger<LoginController> logger)
+        public LoginController(ILogger<LoginController> logger, ILoginRepository loginRepository, IConfiguration configuration) // Modified constructor
         {
-            loginRepository = login;
-            _logger = logger; // Inject logger
+            _loginRepository = loginRepository;
+            _logger = logger;
+            _connectionString = configuration.GetConnectionString("DefaultConnection"); // Add this
         }
 
-        [HttpPost("login")] // Changed route to "login"
-        public async Task<IActionResult> LoginStudent([FromBody] LoginModel login) // Use LoginModel
+        [HttpPost("login")]
+        public async Task<IActionResult> LoginStudent([FromBody] LoginModel login)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var response = await loginRepository.GetLogin(login.Username, login.Password); // Await the result
+            try
+            {
+                var response = await _loginRepository.GetLogin(login.Username, login.Password);
 
-            if (response != null) // Check if login was successful
-            {
-                return Ok(response); // Return the successful response
+                if (response != null)
+                {
+                    return Ok(response);
+                }
+                else
+                {
+                    return Unauthorized("Invalid username or password.");
+                }
             }
-            else
+            catch (SqlException ex)
             {
-                return Unauthorized("Invalid username or password."); // Return Unauthorized if login fails
+                _logger.LogError(ex, "SQL error during login for user: {Username}", login.Username);
+                return StatusCode(500, "An error occurred during login. Please try again later.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during login for user: {Username}", login.Username);
+                return StatusCode(500, "An unexpected error occurred. Please try again later.");
             }
         }
 
@@ -51,43 +68,43 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            // Check if the username or email already exists (using your repository)
-            if (await loginRepository.UserExists(model.Username, model.Email))
-            {
-                return BadRequest(new RegistrationResponseModel {  Message = "Username or email already exists." });
-            }
-
-            // Hash the password
-            string salt = GenerateSalt();
-            string hashedPassword = HashPassword(model.Password, salt);
-
-            // Create a new user entity (Adapt this to your database entity)
-            var newUser = new User
-            {
-                Username = model.Username,
-                PasswordHash = hashedPassword, 
-                Email = model.Email,
-                Gender = model.Gender,
-                Number = model.Number,
-                Salt = salt 
-            };
-
             try
             {
-                // Register the user using your repository
-                await loginRepository.RegisterUser(newUser);
+                if (await _loginRepository.UserExists(model.Username, model.Email))
+                {
+                    return BadRequest(new RegistrationResponseModel { Message = "Username or email already exists." });
+                }
+
+                string salt = GenerateSalt();
+                string hashedPassword = HashPassword(model.Password, salt);
+
+                var newUser = new User
+                {
+                    Username = model.Username,
+                    PasswordHash = hashedPassword,
+                    Email = model.Email,
+                    Gender = model.Gender,
+                    Number = model.Number,
+                    Salt = salt
+                };
+
+                await _loginRepository.RegisterUser(newUser);
 
                 var response = new RegistrationResponseModel { Message = "Registration successful!" };
                 return Ok(response);
             }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "SQL error during registration for user: {Username}, Email: {Email}", model.Username, model.Email);
+                return StatusCode(500, "An error occurred during registration. Please try again later.");
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during registration."); // Log the error
-                return StatusCode(500, new RegistrationResponseModel { Message = "Registration failed. Please try again later." }); // Return 500
+                _logger.LogError(ex, "Unexpected error during registration for user: {Username}, Email: {Email}", model.Username, model.Email);
+                return StatusCode(500, "Registration failed. Please try again later.");
             }
         }
 
-        // Helper methods for password hashing (replace with a more robust implementation)
         private string GenerateSalt()
         {
             byte[] salt = new byte[16];
@@ -115,10 +132,10 @@ namespace StudentViolations.API.Controllers
     public class User
     {
         public string Username { get; set; }
-        public string PasswordHash { get; set; } 
+        public string PasswordHash { get; set; }
         public string Email { get; set; }
         public string Gender { get; set; }
         public string Number { get; set; }
-        public string Salt { get; set; } 
+        public string Salt { get; set; }
     }
 }

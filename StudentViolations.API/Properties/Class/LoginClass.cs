@@ -35,6 +35,7 @@ namespace StudentViolations.API.Class
 
                 var param = new DynamicParameters();
                 param.Add("username", username);
+                param.Add("password", password);    
                 param.Add("statementType", "GETLOGIN"); // Correct statement type
 
                 // Execute the stored procedure and retrieve the user data
