@@ -1,18 +1,27 @@
-using StudentViolations.API.Class;
+using Microsoft.EntityFrameworkCore;
 using StudentViolations.API.IRepository;
+using StudentViolationsAPI.Data;
+using StudentViolationsAPI.IRepository;
+using StudentViolationsAPI.Repository;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
-// Load configuration from appsettings.json
-builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 builder.Services.AddControllers();
-builder.Services.AddScoped<ILoginRepository, LoginClass>();
-builder.Services.AddLogging();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<ILoginRepository, LoginRepository>();
 
+
+// Configure DbContext
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register repositories
+builder.Services.AddScoped<IStudentRepository, StudentRepository>();
+builder.Services.AddScoped<IViolationRepository, ViolationRepository>();
+;
 
 var app = builder.Build();
 
@@ -24,8 +33,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseCors("AllowSpecificOrigin");
 
 app.UseAuthorization();
 

@@ -13,7 +13,7 @@ using Microsoft.Extensions.Configuration;
 namespace StudentViolations.API.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("students")]
     public class LoginController : ControllerBase
     {
         private readonly ILoginRepository _loginRepository; // Changed to private readonly

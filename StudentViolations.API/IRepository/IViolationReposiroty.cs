@@ -1,6 +1,10 @@
-﻿namespace StudentViolations.API.IRepository
+﻿using StudentViolationsAPI.Model.Entities;
+
+namespace StudentViolationsAPI.IRepository
 {
-    public interface IViolationReposiroty
+    public interface IViolationRepository
     {
+        Task RecordViolation(Violation violation);
+        Task<List<Violation>> GetViolationsByStudentId(string studentId);
     }
 }

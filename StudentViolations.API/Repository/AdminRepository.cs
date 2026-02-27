@@ -1,12 +1,12 @@
 ﻿//using Microsoft.AspNetCore.Mvc;
-//using StudentViolations.API.Data;
-//using Microsoft.EntityFrameworkCore;
-//using StudentViolations.API.Model.Requests;
+//using StudentViolationsAPI.Data; // Add this
+//using Microsoft.EntityFrameworkCore; // Add this
+//using StudentViolationsAPI.Model.Requests; // Add this
 //using System;
 //using System.Linq;
 //using System.Threading.Tasks;
 
-//namespace StudentViolations.API.Controllers
+//namespace StudentViolationsAPI.Controllers
 //{
 //    [ApiController]
 //    [Route("api/v1/admin")]
@@ -84,11 +84,12 @@
 //                        end = request.EndDate
 //                    }
 //                });
-//            }            catch (Exception ex)
- //          {
-                // Log the exception
- //               return StatusCode(500, new { status = "error", message = "An error occurred." });
-  //         }
- //      }
+//            }
+//            catch (Exception ex)
+//            {
+//                // Log the exception
+//                return StatusCode(500, new { status = "error", message = "An error occurred." });
+//            }
+//        }
 //    }
 //}
