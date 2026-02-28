@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient; // Use Microsoft.Data.SqlClient
 using Microsoft.Extensions.Configuration;
 using StudentViolations.API.Controllers;
 using StudentViolations.API.IRepository;
+using StudentViolationsAPI.Model.Entities;
 using StudentViolations.API.Model;
 using System;
 using System.Data;

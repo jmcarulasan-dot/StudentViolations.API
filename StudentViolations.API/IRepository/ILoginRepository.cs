@@ -1,5 +1,6 @@
 ﻿using StudentViolations.API.Controllers;
 using StudentViolations.API.Model;
+using StudentViolationsAPI.Model.Entities;
 using System.Threading.Tasks;
 
 namespace StudentViolations.API.IRepository
@@ -8,6 +9,7 @@ namespace StudentViolations.API.IRepository
     {
         Task<ServiceResponse<object>> GetLogin(string username, string password);
         Task<bool> UserExists(string username, string email);
-        Task<ServiceResponse<object>> RegisterUser(User user);
+        Task<ServiceResponse<object>> RegisterUser(User user); // Keep this one
+        //  Task RegisterUser(User newUser); // Remove this line!
     }
 }

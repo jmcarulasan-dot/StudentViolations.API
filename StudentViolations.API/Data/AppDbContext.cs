@@ -1,5 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using StudentViolations.API.Controllers;
+using StudentViolations.API.Model;
 using StudentViolationsAPI.Model.Entities;
+
 
 namespace StudentViolationsAPI.Data
 {
@@ -11,10 +14,10 @@ namespace StudentViolationsAPI.Data
 
         public DbSet<Student> Students { get; set; }
         public DbSet<Violation> Violations { get; set; }
-
+        public DbSet<User> Users { get; set; } 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Configure relationships, constraints, etc.
+            
             base.OnModelCreating(modelBuilder);
         }
     }

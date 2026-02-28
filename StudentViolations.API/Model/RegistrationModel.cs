@@ -20,4 +20,4 @@ namespace StudentViolations.API.Model
         [Phone(ErrorMessage = "Invalid phone number.")]
         public string Number { get; set; }
     }
-}
+}   
