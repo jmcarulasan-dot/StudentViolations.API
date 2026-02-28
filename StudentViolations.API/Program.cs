@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using StudentViolations.API.Class;
 using StudentViolations.API.IRepository;
 using StudentViolationsAPI.Data;
 using StudentViolationsAPI.IRepository;
@@ -12,17 +13,14 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<ILoginRepository, LoginRepository>();
-
-
+builder.Services.AddScoped<ILoginRepository, LoginClass>();
+builder.Services.AddScoped<IRegisterRepository, RegisterClass>();
 // Configure DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 // Register repositories
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IViolationRepository, ViolationRepository>();
-;
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

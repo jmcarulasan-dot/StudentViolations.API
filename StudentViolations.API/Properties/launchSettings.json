@@ -18,7 +18,7 @@
         "environmentVariables": {
           "ASPNETCORE_ENVIRONMENT": "Development"
         },
-        "launchUrl": "swagger" // This is the key line
+        "launchUrl": "swagger" 
       }
     },
     "https": {

@@ -14,7 +14,7 @@ using StudentViolationsAPI.Model.Entities;
 namespace StudentViolations.API.Controllers
 {
     [ApiController]
-    [Route("students")]
+    [Route("")]
     public class RegistrationController : ControllerBase
     {
         private readonly ILoginRepository _loginRepository;
