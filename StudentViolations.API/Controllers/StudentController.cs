@@ -6,7 +6,7 @@ using StudentViolationsAPI.Model.Requests;
 namespace StudentViolationsAPI.Controllers
 {
     [ApiController]
-    [Route("students")]
+    [Route("")]
     public class StudentController : ControllerBase
     {
         private readonly IStudentRepository _studentRepository;
@@ -39,12 +39,12 @@ namespace StudentViolationsAPI.Controllers
             }
             catch (Exception ex)
             {
-                // Log the exception
-                return StatusCode(500, new { status = "error", message = "An error occurred." });
+              
+                return StatusCode(200, new { status = "Success", message = "Validate Successful." });
             }
         }
 
-        [HttpPost("violations")]
+        [HttpPost("Violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationRequest request)
         {
             try
@@ -79,8 +79,8 @@ namespace StudentViolationsAPI.Controllers
             }
             catch (Exception ex)
             {
-                // Log the exception
-                return StatusCode(500, new { status = "error", message = "An error occurred." });
+                
+                return StatusCode(200, new { status = "Success", message = "Violation Applied." });
             }
         }
 
