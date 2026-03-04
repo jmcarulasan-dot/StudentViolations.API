@@ -17,7 +17,6 @@ namespace StudentViolations.API.Controllers
             _context = context;
         }
 
-        // ✅ summary FIRST to avoid route conflict with {studentId}
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetViolationSummary([FromQuery] GetSummaryRequest request)
         {
@@ -59,14 +58,13 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // ✅ parameterized route SECOND
         [HttpGet("violations/{studentId}")]
         public async Task<IActionResult> GetViolationHistory(string studentId)
         {
             try
             {
                 var violations = await _context.Violations
-                    .Where(v => v.StudentId == studentId)
+                    .Where(v => v.StudentId == int.Parse(studentId))
                     .ToListAsync();
 
                 if (violations == null || violations.Count == 0)

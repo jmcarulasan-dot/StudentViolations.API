@@ -18,12 +18,12 @@ void main() {
 
 // ── Official ACLC College of Mandaue Brand Colors ─────────────────────────────
 class ACLCColors {
-  static const red       = Color(0xFFFD070C); // Official ACLC Red
-  static const navy      = Color(0xFF0F136E); // Official ACLC Navy Blue
-  static const navyLight = Color(0xFF1A1F8F); // Slightly lighter navy
-  static const redDark   = Color(0xFFB80004); // Darker red for hover/shadows
+  static const red       = Color(0xFFFD070C);
+  static const navy      = Color(0xFF0F136E);
+  static const navyLight = Color(0xFF1A1F8F);
+  static const redDark   = Color(0xFFB80004);
   static const white     = Colors.white;
-  static const gray      = Color(0xFFF5F7FA); // Light background
+  static const gray      = Color(0xFFF5F7FA);
   static const cardBg    = Color(0xFFFFFFFF);
 }
 
@@ -49,16 +49,18 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
 
-          // Seed the whole app from ACLC Red
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: ACLCColors.red,
-            primary: ACLCColors.red,
-            secondary: ACLCColors.navy,
-            surface: ACLCColors.cardBg,
-            background: ACLCColors.gray,
+          colorScheme: const ColorScheme(
+            brightness: Brightness.light,
+            primary: ACLCColors.navy,
             onPrimary: Colors.white,
+            secondary: ACLCColors.navy,
             onSecondary: Colors.white,
+            error: ACLCColors.red,
+            onError: Colors.white,
+            surface: ACLCColors.cardBg,
             onSurface: Colors.black87,
+            background: ACLCColors.gray,
+            onBackground: Colors.black87,
           ),
 
           scaffoldBackgroundColor: ACLCColors.gray,
@@ -92,10 +94,10 @@ class MyApp extends StatelessWidget {
           // ── Elevated Buttons ──────────────────────────────────────────────
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: ACLCColors.red,
+              backgroundColor: ACLCColors.navy,
               foregroundColor: Colors.white,
               elevation: 3,
-              shadowColor: ACLCColors.red.withOpacity(0.4),
+              shadowColor: ACLCColors.navy.withOpacity(0.4),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -112,9 +114,7 @@ class MyApp extends StatelessWidget {
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
               foregroundColor: ACLCColors.navy,
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
 
@@ -155,7 +155,7 @@ class MyApp extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
 
-          // ── Chip (role chips, tags) ────────────────────────────────────────
+          // ── Chip ─────────────────────────────────────────────────────────
           chipTheme: ChipThemeData(
             backgroundColor: Colors.grey.shade100,
             selectedColor: ACLCColors.navy.withOpacity(0.15),
@@ -170,9 +170,9 @@ class MyApp extends StatelessWidget {
             ),
           ),
 
-          // ── Floating Action Button ────────────────────────────────────────
+          // ── FAB ───────────────────────────────────────────────────────────
           floatingActionButtonTheme: const FloatingActionButtonThemeData(
-            backgroundColor: ACLCColors.red,
+            backgroundColor: ACLCColors.navy,
             foregroundColor: Colors.white,
             elevation: 4,
           ),
@@ -196,35 +196,17 @@ class MyApp extends StatelessWidget {
 
           // ── Typography ────────────────────────────────────────────────────
           textTheme: const TextTheme(
-            bodyMedium: TextStyle(
-              color: Colors.black87,
-              fontSize: 14,
-            ),
-            bodySmall: TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-            ),
+            bodyMedium: TextStyle(color: Colors.black87, fontSize: 14),
+            bodySmall: TextStyle(color: Colors.black54, fontSize: 12),
             titleLarge: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: ACLCColors.navy,
-            ),
+              fontSize: 22, fontWeight: FontWeight.w800, color: ACLCColors.navy),
             titleMedium: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: ACLCColors.navy,
-            ),
+              fontSize: 16, fontWeight: FontWeight.w700, color: ACLCColors.navy),
             titleSmall: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: ACLCColors.navy,
-            ),
+              fontSize: 14, fontWeight: FontWeight.w600, color: ACLCColors.navy),
             labelLarge: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: 0.8,
-            ),
+              fontSize: 15, fontWeight: FontWeight.w700,
+              color: Colors.white, letterSpacing: 0.8),
           ),
         ),
       ),
@@ -241,20 +223,13 @@ class DashboardWrapper extends StatelessWidget {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final user = authProvider.currentUser;
-
         if (user == null) return const LoginScreen();
-
         switch (user.role) {
-          case UserRole.guard:
-            return const GuardDashboard();
-          case UserRole.student:
-            return const StudentDashboard();
-          case UserRole.sao:
-            return const SAODashboard();
-          case UserRole.guidance:
-            return const GuidanceDashboard();
-          default:
-            return const LoginScreen();
+          case UserRole.guard:    return const GuardDashboard();
+          case UserRole.student:  return const StudentDashboard();
+          case UserRole.sao:      return const SAODashboard();
+          case UserRole.guidance: return const GuidanceDashboard();
+          default:                return const LoginScreen();
         }
       },
     );

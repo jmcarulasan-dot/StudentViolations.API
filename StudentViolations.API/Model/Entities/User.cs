@@ -1,27 +1,52 @@
-﻿using System;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace StudentViolationsAPI.Model.Entities
 {
+    [Table("Student_Login")]
     public class User
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Column("StudentID")]
         public int Id { get; set; }
 
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
+        [Column("Username")]
+        public string Username { get; set; }
 
-        public DateTime DateOfBirth { get; set; }
-        public string Gender { get; set; }
+        [Column("PasswordHash")]
+        public string PasswordHash { get; set; }
 
-        public string Address { get; set; }
-        public string ContactNumber { get; set; }
+        [Column("Salt")]
+        public string Salt { get; set; }
 
+        [Column("Email")]
         public string Email { get; set; }
 
-        public string Number { get; set; }
-        public DateTime RegistrationDate { get; set; }
+        [Column("FirstName")]
+        public string FirstName { get; set; }
 
-        public string Username { get; set; }
-        public string PasswordHash { get; set; }
-        public string Salt { get; set; }
+        [Column("LastName")]
+        public string LastName { get; set; }
+        [Column("DateOfBirth")]
+        public string DateOfBirth { get; set; }
+
+        [Column("Gender")]
+        public string Gender { get; set; }
+
+        [Column("Address")]
+        public string Address { get; set; }
+
+        [Column("ContactNumber")]
+        public string ContactNumber { get; set; }
+
+        [Column("RegistrationDate")]
+        public DateTime? RegistrationDate { get; set; }
+
+        [Column("Role")]
+        public string Role { get; set; }
+
+        [NotMapped]
+        public string Number { get; set; }
     }
 }

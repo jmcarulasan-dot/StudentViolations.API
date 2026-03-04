@@ -2,13 +2,9 @@
 using Microsoft.Extensions.Logging;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
-using System.Threading.Tasks;
-using System.Linq;
-using System;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using System.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using StudentViolationsAPI.Model.Entities;
 
 namespace StudentViolations.API.Controllers
@@ -33,12 +29,11 @@ namespace StudentViolations.API.Controllers
             {
                 return BadRequest(ModelState);
             }
-
             try
             {
                 if (await _loginRepository.UserExists(model.Username, model.Email))
                 {
-                    return BadRequest("User already exists with this username or email.");
+                    return BadRequest(new { status = "error", message = "User already exists with this username or email." });
                 }
 
                 string salt = GenerateSalt();
@@ -50,24 +45,28 @@ namespace StudentViolations.API.Controllers
                     PasswordHash = hashedPassword,
                     Email = model.Email,
                     Gender = model.Gender,
-                    Number = model.Number,
-                    Salt = salt
+                    ContactNumber = model.Number,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    DateOfBirth = model.DateOfBirth,
+                    Address = model.Address,
+                    Salt = salt,
+                    RegistrationDate = DateTime.Now,
+                    Role = model.Role
                 };
 
                 await _loginRepository.RegisterUser(newUser);
-
-                var response = new { success = true, message = "Registration successful!" };
-                return Ok(response);
+                return Ok(new { status = "success", message = "Registration successful!", role = model.Role });
             }
             catch (SqlException ex)
             {
-                _logger.LogError(ex, "SQL error during registration for user: {Username}, Email: {Email}", model.Username, model.Email);
-                return StatusCode(500, "An error occurred during registration. Please try again later.");
+                _logger.LogError(ex, "SQL error during registration for user: {Username}", model.Username);
+                return StatusCode(500, new { status = "error", message = ex.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Successful during registration for user: {Username}, Email: {Email}", model.Username, model.Email);
-                return StatusCode(200, "Login successful.");
+                _logger.LogError(ex, "Error during registration for user: {Username}", model.Username);
+                return StatusCode(500, new { status = "error", message = ex.Message });
             }
         }
 
@@ -84,7 +83,6 @@ namespace StudentViolations.API.Controllers
         private string HashPassword(string password, string salt)
         {
             byte[] saltBytes = Convert.FromBase64String(salt);
-
             string hashed = Convert.ToBase64String(KeyDerivation.Pbkdf2(
                 password: password,
                 salt: saltBytes,

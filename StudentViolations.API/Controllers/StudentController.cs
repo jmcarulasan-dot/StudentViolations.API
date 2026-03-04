@@ -17,30 +17,32 @@ namespace StudentViolationsAPI.Controllers
             _studentRepository = studentRepository;
             _violationRepository = violationRepository;
         }
+
         [HttpPost("validate")]
         public async Task<IActionResult> ValidateStudent([FromBody] ValidateStudentRequest request)
         {
             try
             {
-                var student = await _studentRepository.GetStudentByQrCode(request.QrCode);
+                var student = await _studentRepository.GetStudentByStudentId(request.QrCode);
                 if (student == null)
                 {
                     return NotFound(new { status = "error", message = "Student not found." });
                 }
+
+                var violations = await _violationRepository.GetViolationsByStudentId(student.Id.ToString());
 
                 return Ok(new
                 {
                     status = "success",
                     student_id = student.Id,
                     name = student.Name,
-                    violation_count = student.ViolationCount,
-                    warning_level = GetWarningLevel(student.ViolationCount)
+                    violation_count = violations.Count,
+                    warning_level = GetWarningLevel(violations.Count)
                 });
             }
             catch (Exception ex)
             {
-              
-                return StatusCode(200, new { status = "Success", message = "Validate Successful." });
+                return StatusCode(500, new { status = "error", message = ex.Message });
             }
         }
 
@@ -49,7 +51,7 @@ namespace StudentViolationsAPI.Controllers
         {
             try
             {
-                var student = await _studentRepository.GetStudentByQrCode(request.GuardId);
+                var student = await _studentRepository.GetStudentByStudentId(request.StudentId.ToString());
                 if (student == null)
                 {
                     return BadRequest(new { status = "error", message = "Invalid Student." });
@@ -61,47 +63,34 @@ namespace StudentViolationsAPI.Controllers
                     Type = request.ViolationType,
                     Details = request.Details,
                     Date = DateTime.Now,
-                    GuardId = request.GuardId
+                    GuardId = request.GuardId,
+                    Severity = request.Severity
                 };
 
                 await _violationRepository.RecordViolation(violation);
 
-                student.ViolationCount++;
-                await _studentRepository.UpdateStudent(student);
+                var violations = await _violationRepository.GetViolationsByStudentId(request.StudentId.ToString());
 
                 return Ok(new
                 {
                     status = "success",
                     message = "Violation recorded.",
-                    new_violation_count = student.ViolationCount,
-                    new_warning_level = GetWarningLevel(student.ViolationCount)
+                    new_violation_count = violations.Count,
+                    new_warning_level = GetWarningLevel(violations.Count)
                 });
             }
             catch (Exception ex)
             {
-                
-                return StatusCode(200, new { status = "Success", message = "Violation Applied." });
+                return StatusCode(500, new { status = "error", message = ex.Message });
             }
         }
 
         private string GetWarningLevel(int violationCount)
         {
-            if (violationCount >= 3)
-            {
-                return "red";
-            }
-            else if (violationCount == 2)
-            {
-                return "orange";
-            }
-            else if (violationCount == 1)
-            {
-                return "yellow";
-            }
-            else
-            {
-                return "green";
-            }
+            if (violationCount >= 3) return "red";
+            else if (violationCount == 2) return "orange";
+            else if (violationCount == 1) return "yellow";
+            else return "green";
         }
     }
 }

@@ -18,7 +18,6 @@ class _LoginScreenState extends State<LoginScreen>
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  UserRole? _selectedRole;
   bool _obscurePassword = true;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -124,12 +123,6 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // ── Role Selection ────────────────────
-                                  _sectionLabel('Select Role'),
-                                  const SizedBox(height: 10),
-                                  _buildRoleChips(),
-                                  const SizedBox(height: 24),
-
                                   // ── Username ──────────────────────────
                                   _buildTextField(
                                     controller: _usernameController,
@@ -195,11 +188,6 @@ class _LoginScreenState extends State<LoginScreen>
                                     ],
                                   ),
 
-                                  // ── Demo hint ─────────────────────────
-                                  if (_selectedRole != null) ...[
-                                    const SizedBox(height: 16),
-                                    _buildDemoHint(),
-                                  ],
                                 ],
                               ),
                             ),
@@ -278,51 +266,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ── Role chips ───────────────────────────────────────────────────────────────
-  Widget _buildRoleChips() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: UserRole.values.map((role) {
-        final selected = _selectedRole == role;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedRole = selected ? null : role),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: selected ? _navy : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: selected ? _navy : Colors.grey.shade300,
-                width: 1.5,
-              ),
-              boxShadow: selected
-                  ? [BoxShadow(color: _navy.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))]
-                  : [],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(_getRoleIcon(role), size: 16,
-                    color: selected ? Colors.white : _navy),
-                const SizedBox(width: 6),
-                Text(
-                  _getRoleDisplayName(role),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : _navy,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   // ── Text field ───────────────────────────────────────────────────────────────
   Widget _buildTextField({
     required TextEditingController controller,
@@ -376,13 +319,13 @@ class _LoginScreenState extends State<LoginScreen>
           width: double.infinity,
           height: 50,
           child: ElevatedButton(
-            onPressed: _selectedRole == null ? null : _login,
+            onPressed: _login,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _red,
+              backgroundColor: _navy,
               disabledBackgroundColor: Colors.grey.shade300,
               foregroundColor: Colors.white,
               elevation: 4,
-              shadowColor: _red.withOpacity(0.4),
+              shadowColor: _navy.withOpacity(0.4),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text(
@@ -399,35 +342,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ── Demo hint ────────────────────────────────────────────────────────────────
-  Widget _buildDemoHint() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: _navy.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _navy.withOpacity(0.15)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline_rounded, size: 15, color: _navy.withOpacity(0.6)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _getLoginInfo(_selectedRole!),
-              style: TextStyle(
-                fontSize: 11,
-                color: _navy.withOpacity(0.7),
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── Decorative circle ────────────────────────────────────────────────────────
   Widget _decorCircle(double size, Color color) {
     return Container(
@@ -437,22 +351,9 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ── Section label ────────────────────────────────────────────────────────────
-  Widget _sectionLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        color: _navy,
-        letterSpacing: 0.3,
-      ),
-    );
-  }
-
   // ── Login logic ──────────────────────────────────────────────────────────────
   void _login() async {
-    if (_formKey.currentState!.validate() && _selectedRole != null) {
+    if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.login(
         _usernameController.text,
@@ -474,34 +375,6 @@ class _LoginScreenState extends State<LoginScreen>
           );
         }
       }
-    }
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-  String _getRoleDisplayName(UserRole role) {
-    switch (role) {
-      case UserRole.guard:    return 'Guard';
-      case UserRole.student:  return 'Student';
-      case UserRole.sao:      return 'SAO';
-      case UserRole.guidance: return 'Guidance';
-    }
-  }
-
-  IconData _getRoleIcon(UserRole role) {
-    switch (role) {
-      case UserRole.guard:    return Icons.security_rounded;
-      case UserRole.student:  return Icons.school_rounded;
-      case UserRole.sao:      return Icons.admin_panel_settings_rounded;
-      case UserRole.guidance: return Icons.psychology_rounded;
-    }
-  }
-
-  String _getLoginInfo(UserRole role) {
-    switch (role) {
-      case UserRole.guard:    return 'Demo — Username: guard  |  Password: guard123';
-      case UserRole.student:  return 'Demo — Username: student  |  Password: student123';
-      case UserRole.sao:      return 'Demo — Username: sao  |  Password: sao123';
-      case UserRole.guidance: return 'Demo — Username: guidance  |  Password: guidance123';
     }
   }
 }

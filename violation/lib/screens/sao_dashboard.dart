@@ -16,7 +16,7 @@ class SAODashboard extends StatefulWidget {
 }
 
 class _SAODashboardState extends State<SAODashboard> {
-  String _selectedFilter = 'all';
+  String _selectedFilter = 'referred';
 
   @override
   void initState() {
@@ -31,7 +31,8 @@ class _SAODashboardState extends State<SAODashboard> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('SAO Dashboard'),
+        title: const Text('SAO Dashboard',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
         backgroundColor: _navy,
         foregroundColor: Colors.white,
         elevation: 3,
@@ -39,6 +40,7 @@ class _SAODashboardState extends State<SAODashboard> {
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => _logout(context),
+            tooltip: 'Logout',
           ),
         ],
       ),
@@ -48,114 +50,194 @@ class _SAODashboardState extends State<SAODashboard> {
             return const Center(child: CircularProgressIndicator(color: _navy));
           }
 
-          final filtered = _filterViolations(violationProvider.violations);
+          final all = violationProvider.violations;
+          final filtered = _filterViolations(all);
 
-          return Column(
-            children: [
-              // Summary Cards
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Welcome Card ──────────────────────────────────────
+                _buildWelcomeCard(context, all),
+                const SizedBox(height: 16),
+
+                // ── Summary Cards ─────────────────────────────────────
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(child: _buildSummaryCard('Total', violationProvider.violations.length, Icons.warning_rounded, _red)),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildSummaryCard('Pending', _getPendingCount(violationProvider.violations), Icons.pending_rounded, Colors.orange)),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(child: _buildSummaryCard('To Guidance', _getReferredToGuidanceCount(violationProvider.violations), Icons.psychology_rounded, Colors.purple)),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildSummaryCard('Cleared Today', _getClearedTodayCount(violationProvider.violations), Icons.check_circle_rounded, Colors.green)),
-                      ],
-                    ),
+                    Expanded(child: _buildStatCard('Referred\nto SAO', _getReferredCount(all), Icons.inbox_rounded, _red)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildStatCard('Disciplinary\nAction', _getDisciplinaryCount(all), Icons.gavel_rounded, Colors.orange)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildStatCard('Cleared', _getClearedCount(all), Icons.check_circle_rounded, Colors.green)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildStatCard('Total\nAll', all.length, Icons.summarize_rounded, _navy)),
                   ],
                 ),
-              ),
+                const SizedBox(height: 16),
 
-              // Filter Chips
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
+                // ── Notice ────────────────────────────────────────────
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _navy.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _navy.withOpacity(0.15)),
+                  ),
+                  child: const Row(
                     children: [
-                      _filterChip('All', 'all'),
-                      const SizedBox(width: 8),
-                      _filterChip('Warning', 'warning'),
-                      const SizedBox(width: 8),
-                      _filterChip('Parent Notified', 'parentNotified'),
-                      const SizedBox(width: 8),
-                      _filterChip('Referred to SAO', 'referredToSAO'),
-                      const SizedBox(width: 8),
-                      _filterChip('To Guidance', 'referredToGuidance'),
+                      Icon(Icons.info_outline_rounded, color: _navy, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'SAO handles cases escalated by the Guidance Office. You are the highest authority.',
+                          style: TextStyle(fontSize: 12, color: _navy, fontWeight: FontWeight.w500),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 14),
 
-              // Violations List
-              Expanded(
-                child: filtered.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                // ── Filter Chips ──────────────────────────────────────
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _filterChip('Referred to SAO', 'referred'),
+                      const SizedBox(width: 8),
+                      _filterChip('Disciplinary Action', 'disciplinary'),
+                      const SizedBox(width: 8),
+                      _filterChip('Cleared', 'cleared'),
+                      const SizedBox(width: 8),
+                      _filterChip('All Cases', 'all'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // ── Cases List ────────────────────────────────────────
+                filtered.isEmpty
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 48),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Column(
                           children: [
                             Icon(Icons.inbox_rounded, size: 56, color: Colors.grey),
-                            SizedBox(height: 8),
-                            Text('No violations found',
+                            SizedBox(height: 10),
+                            Text('No cases found',
                                 style: TextStyle(color: Colors.grey, fontSize: 14)),
                           ],
                         ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
                         itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          return _buildViolationCard(filtered[index]);
-                        },
+                        itemBuilder: (context, index) =>
+                            _buildViolationCard(filtered[index]),
                       ),
-              ),
-            ],
+                const SizedBox(height: 16),
+              ],
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _buildSummaryCard(String title, int count, IconData icon, Color color) {
+  // ── Welcome Card ────────────────────────────────────────────────────────────
+  Widget _buildWelcomeCard(BuildContext context, List<Violation> all) {
+    final name = Provider.of<AuthProvider>(context, listen: false).currentUser?.name ?? 'SAO';
+    final referredCount = _getReferredCount(all);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_navy, Color(0xFF1A1F8F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: _navy.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 30),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Welcome, $name!',
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 2),
+                const Text('Student Affairs Office — Highest Authority',
+                    style: TextStyle(fontSize: 12, color: Colors.white60)),
+                if (referredCount > 0) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _red.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                        '$referredCount case${referredCount > 1 ? 's' : ''} awaiting SAO decision!',
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Stat Card ───────────────────────────────────────────────────────────────
+  Widget _buildStatCard(String title, int count, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.12),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: color.withOpacity(0.12), blurRadius: 10, offset: const Offset(0, 4)),
         ],
         border: Border.all(color: color.withOpacity(0.15)),
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 6),
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 4),
           Text(count.toString(),
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color)),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
           Text(title,
-              style: TextStyle(fontSize: 11, color: color.withOpacity(0.8)),
+              style: TextStyle(fontSize: 9, color: color.withOpacity(0.8)),
               textAlign: TextAlign.center),
         ],
       ),
     );
   }
 
+  // ── Filter Chip ─────────────────────────────────────────────────────────────
   Widget _filterChip(String label, String value) {
     final selected = _selectedFilter == value;
     return GestureDetector(
@@ -171,31 +253,27 @@ class _SAODashboardState extends State<SAODashboard> {
               ? [BoxShadow(color: _navy.withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 2))]
               : [],
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : Colors.black54,
-          ),
-        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : Colors.black54)),
       ),
     );
   }
 
+  // ── Violation Card ──────────────────────────────────────────────────────────
   Widget _buildViolationCard(Violation violation) {
+    final statusColor = _getStatusColor(violation.status);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(
-            color: _navy.withOpacity(0.07),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
+          BoxShadow(color: _navy.withOpacity(0.07), blurRadius: 8, offset: const Offset(0, 3)),
         ],
+        border: Border.all(color: statusColor.withOpacity(0.2)),
       ),
       child: ExpansionTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -213,12 +291,12 @@ class _SAODashboardState extends State<SAODashboard> {
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.1),
+            color: statusColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(violation.statusDescription,
-              style: const TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.w600, color: Colors.green)),
+              style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w700, color: statusColor)),
         ),
         children: [
           Padding(
@@ -237,38 +315,53 @@ class _SAODashboardState extends State<SAODashboard> {
                 Text('Reported By: ${violation.reportedBy ?? 'Unknown'}',
                     style: const TextStyle(fontSize: 12, color: Colors.black54)),
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    if (violation.status == ViolationStatus.referredToSAO) ...[
+
+                // ── SAO Actions ───────────────────────────────────────
+                if (violation.status == ViolationStatus.referredToSAO) ...[
+                  const Text('SAO Actions',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: _navy, fontSize: 13)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
                       Expanded(
                         child: _actionButton(
-                          'Refer to Guidance',
-                          Icons.psychology_rounded,
-                          Colors.purple,
-                          () => _referToGuidance(violation),
+                          'Disciplinary Action',
+                          Icons.gavel_rounded,
+                          Colors.orange,
+                          () => _takeDisciplinaryAction(violation),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: _actionButton(
-                          'Clear',
+                          'Clear Case',
                           Icons.check_circle_rounded,
                           Colors.green,
                           () => _clearViolation(violation),
                         ),
                       ),
-                    ] else if (violation.status == ViolationStatus.parentNotified) ...[
-                      Expanded(
-                        child: _actionButton(
-                          'Confirm Parent Contact',
-                          Icons.phone_rounded,
-                          Colors.orange,
-                          () => _confirmParentNotification(violation),
-                        ),
-                      ),
                     ],
-                  ],
-                ),
+                  ),
+                ] else if (violation.status == ViolationStatus.cleared) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.green.withOpacity(0.2)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: Colors.green, size: 18),
+                        SizedBox(width: 8),
+                        Text('This case has been cleared',
+                            style: TextStyle(
+                                color: Colors.green, fontWeight: FontWeight.w600, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -292,31 +385,39 @@ class _SAODashboardState extends State<SAODashboard> {
     );
   }
 
+  // ── Filters ─────────────────────────────────────────────────────────────────
   List<Violation> _filterViolations(List<Violation> violations) {
     switch (_selectedFilter) {
-      case 'warning':           return violations.where((v) => v.status == ViolationStatus.warning).toList();
-      case 'parentNotified':    return violations.where((v) => v.status == ViolationStatus.parentNotified).toList();
-      case 'referredToSAO':     return violations.where((v) => v.status == ViolationStatus.referredToSAO).toList();
-      case 'referredToGuidance':return violations.where((v) => v.status == ViolationStatus.referredToGuidance).toList();
-      default:                  return violations;
+      case 'referred':
+        return violations.where((v) => v.status == ViolationStatus.referredToSAO).toList();
+      case 'disciplinary':
+        return violations.where((v) => v.status == ViolationStatus.disciplinaryAction).toList();
+      case 'cleared':
+        return violations.where((v) => v.status == ViolationStatus.cleared).toList();
+      default:
+        return violations;
     }
   }
 
-  int _getPendingCount(List<Violation> v) => v.where((x) =>
-      x.status == ViolationStatus.warning ||
-      x.status == ViolationStatus.parentNotified ||
-      x.status == ViolationStatus.referredToSAO).length;
+  int _getReferredCount(List<Violation> v) =>
+      v.where((x) => x.status == ViolationStatus.referredToSAO).length;
 
-  int _getReferredToGuidanceCount(List<Violation> v) =>
-      v.where((x) => x.status == ViolationStatus.referredToGuidance).length;
+  int _getDisciplinaryCount(List<Violation> v) =>
+      v.where((x) => x.status == ViolationStatus.disciplinaryAction).length;
 
-  int _getClearedTodayCount(List<Violation> v) {
-    final today = DateTime.now();
-    return v.where((x) =>
-      x.status == ViolationStatus.cleared &&
-      x.date.year == today.year &&
-      x.date.month == today.month &&
-      x.date.day == today.day).length;
+  int _getClearedCount(List<Violation> v) =>
+      v.where((x) => x.status == ViolationStatus.cleared).length;
+
+  Color _getStatusColor(ViolationStatus status) {
+    switch (status) {
+      case ViolationStatus.warning:             return Colors.orange;
+      case ViolationStatus.parentNotified:      return Colors.blue;
+      case ViolationStatus.referredToSAO:       return _red;
+      case ViolationStatus.referredToGuidance:  return Colors.teal;
+      case ViolationStatus.disciplinaryAction:  return Colors.deepOrange;
+      case ViolationStatus.cleared:             return Colors.green;
+      default:                                  return Colors.grey;
+    }
   }
 
   Color _getViolationTypeColor(ViolationType type) {
@@ -337,31 +438,26 @@ class _SAODashboardState extends State<SAODashboard> {
     }
   }
 
-  void _referToGuidance(Violation violation) async {
-    final confirmed = await _confirm('Refer to Guidance',
-        'Are you sure you want to refer this case to the Guidance Office?');
+  // ── Actions ─────────────────────────────────────────────────────────────────
+  void _takeDisciplinaryAction(Violation violation) async {
+    final confirmed = await _confirm(
+        'Disciplinary Action',
+        'Are you sure you want to impose a disciplinary action on this student?');
     if (confirmed) {
       final vp = Provider.of<ViolationProvider>(context, listen: false);
-      await vp.updateViolationStatus(violation.id, ViolationStatus.referredToGuidance);
-      if (vp.error == null) _showSnack('Case referred to Guidance Office', Colors.green);
+      await vp.updateViolationStatus(violation.id, ViolationStatus.disciplinaryAction);
+      if (vp.error == null) _showSnack('Disciplinary action imposed', Colors.orange);
     }
   }
 
   void _clearViolation(Violation violation) async {
-    final confirmed = await _confirm('Clear Violation', 'Are you sure you want to clear this violation?');
+    final confirmed = await _confirm(
+        'Clear Case',
+        'Are you sure you want to clear this case?');
     if (confirmed) {
       final vp = Provider.of<ViolationProvider>(context, listen: false);
       await vp.updateViolationStatus(violation.id, ViolationStatus.cleared);
-      if (vp.error == null) _showSnack('Violation cleared', Colors.green);
-    }
-  }
-
-  void _confirmParentNotification(Violation violation) async {
-    final confirmed = await _confirm('Confirm Parent Contact', 'Have you contacted the parents/guardians?');
-    if (confirmed) {
-      final vp = Provider.of<ViolationProvider>(context, listen: false);
-      await vp.updateViolationStatus(violation.id, ViolationStatus.referredToSAO);
-      if (vp.error == null) _showSnack('Parent contact confirmed. Case escalated to SAO.', Colors.green);
+      if (vp.error == null) _showSnack('Case cleared ✅', Colors.green);
     }
   }
 
@@ -393,7 +489,7 @@ class _SAODashboardState extends State<SAODashboard> {
 
   void _showSnack(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
+      content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
       backgroundColor: color,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

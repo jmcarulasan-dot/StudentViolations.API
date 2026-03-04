@@ -14,9 +14,10 @@ namespace StudentViolationsAPI.Repository
             _context = context;
         }
 
-        public async Task<Student> GetStudentByQrCode(string qrCode)
+        public async Task<Student> GetStudentByStudentId(string studentId)
         {
-            return await _context.Students.FirstOrDefaultAsync(s => s.QrCode == qrCode);
+            return await _context.Students
+                .FirstOrDefaultAsync(s => s.Id.ToString() == studentId);
         }
 
         public async Task UpdateStudent(Student student)

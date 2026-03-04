@@ -1,13 +1,47 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace StudentViolationsAPI.Model.Entities
 {
+    [Table("Students")]
     public class Student
     {
         [Key]
-        public int Id { get; set; } 
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Column("StudentID")]
+        public int Id { get; set; }
+
+        [Column("FirstName")]
+        public string FirstName { get; set; }
+
+        [Column("LastName")]
+        public string LastName { get; set; }
+
+        [Column("DateOfBirth")]
+        public DateTime? DateOfBirth { get; set; }
+
+        [Column("Gender")]
+        public string Gender { get; set; }
+
+        [Column("Address")]
+        public string Address { get; set; }
+
+        [Column("ContactNumber")]
+        public string ContactNumber { get; set; }
+
+        [Column("Email")]
+        public string Email { get; set; }
+
+        [Column("RegistrationDate")]
+        public DateTime? RegistrationDate { get; set; }
+
+        [NotMapped]
+        public string Name => $"{FirstName} {LastName}";
+
+        [NotMapped]
         public string QrCode { get; set; }
-        public string Name { get; set; }
+
+        [NotMapped]
         public int ViolationCount { get; set; }
     }
 }

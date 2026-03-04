@@ -22,7 +22,10 @@ namespace StudentViolationsAPI.Repository
 
         public async Task<List<Violation>> GetViolationsByStudentId(string studentId)
         {
-            return await _context.Violations.Where(v => v.StudentId == studentId).ToListAsync();
+            int id = int.Parse(studentId);
+            return await _context.Violations
+                .Where(v => v.StudentId == id)
+                .ToListAsync();
         }
     }
 }

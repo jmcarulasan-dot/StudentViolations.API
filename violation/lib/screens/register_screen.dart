@@ -24,8 +24,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _contactController = TextEditingController();
 
   UserRole? _selectedRole;
+  String? _selectedYear;
+  String? _selectedCourse;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  final List<String> _yearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+  final List<String> _courses = ['BSIT', 'BSA', 'BSBA', 'BSCS', 'BSHM'];
 
   @override
   void dispose() {
@@ -127,46 +132,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             // Role Selection
                             _sectionLabel('Select Role'),
                             const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: UserRole.values.map((role) {
-                                final selected = _selectedRole == role;
-                                return GestureDetector(
-                                  onTap: () => setState(
-                                      () => _selectedRole = selected ? null : role),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: selected ? _navy : Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: selected ? _navy : Colors.grey.shade300,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(_getRoleIcon(role),
-                                            size: 16,
-                                            color: selected ? Colors.white : _navy),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _getRoleDisplayName(role),
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: selected ? Colors.white : _navy,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                            DropdownButtonFormField<UserRole>(
+                              value: _selectedRole,
+                              decoration: InputDecoration(
+                                labelText: 'Role',
+                                prefixIcon: const Icon(Icons.badge_rounded, color: _navy, size: 20),
+                                filled: true,
+                                fillColor: const Color(0xFFF7F8FC),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: Color(0xFFDDE1EE)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: Color(0xFFDDE1EE)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: _navy, width: 1.8),
+                                ),
+                                focusedErrorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: _navy, width: 1.8),
+                                ),
+                                errorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: _red, width: 1.5),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              ),
+                              hint: const Text('Select your role'),
+                              items: UserRole.values.map((role) {
+                                return DropdownMenuItem(
+                                  value: role,
+                                  child: Row(
+                                    children: [
+                                      Icon(_getRoleIcon(role), size: 18, color: _navy),
+                                      const SizedBox(width: 10),
+                                      Text(_getRoleDisplayName(role),
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                    ],
                                   ),
                                 );
                               }).toList(),
+                              onChanged: (value) => setState(() => _selectedRole = value),
+                              validator: (v) => v == null ? 'Please select a role' : null,
                             ),
                             const SizedBox(height: 24),
 
@@ -252,16 +262,85 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             // Student-only fields
                             if (_selectedRole == UserRole.student) ...[
                               const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: _gradeSectionController,
-                                label: 'Year & Course',
-                                icon: Icons.school_rounded,
-                                hint: 'e.g., 2nd Year - BSIT',
-                                validator: (v) {
-                                  if (v == null || v.isEmpty)
-                                    return 'Please enter your year and course';
-                                  return null;
-                                },
+                              // Year Dropdown
+                              DropdownButtonFormField<String>(
+                                value: _selectedYear,
+                                dropdownColor: Colors.white,
+                                iconEnabledColor: _navy,
+                                style: const TextStyle(color: Colors.black87, fontSize: 14),
+                                decoration: InputDecoration(
+                                  labelText: 'Year Level',
+                                  prefixIcon: const Icon(Icons.calendar_today_rounded, color: _navy, size: 20),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF7F8FC),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFFDDE1EE)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFFDDE1EE)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: _navy, width: 1.8),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: _red, width: 1.5),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                ),
+                                hint: const Text('Select year level'),
+                                items: _yearLevels.map((year) {
+                                  return DropdownMenuItem(
+                                    value: year,
+                                    child: Text(year),
+                                  );
+                                }).toList(),
+                                onChanged: (value) => setState(() => _selectedYear = value),
+                                validator: (v) => v == null ? 'Please select your year level' : null,
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Course Dropdown
+                              DropdownButtonFormField<String>(
+                                value: _selectedCourse,
+                                dropdownColor: Colors.white,
+                                iconEnabledColor: _navy,
+                                style: const TextStyle(color: Colors.black87, fontSize: 14),
+                                decoration: InputDecoration(
+                                  labelText: 'Course',
+                                  prefixIcon: const Icon(Icons.menu_book_rounded, color: _navy, size: 20),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF7F8FC),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFFDDE1EE)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFFDDE1EE)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: _navy, width: 1.8),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: _red, width: 1.5),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                ),
+                                hint: const Text('Select course'),
+                                items: _courses.map((course) {
+                                  return DropdownMenuItem(
+                                    value: course,
+                                    child: Text(course),
+                                  );
+                                }).toList(),
+                                onChanged: (value) => setState(() => _selectedCourse = value),
+                                validator: (v) => v == null ? 'Please select your course' : null,
                               ),
                               const SizedBox(height: 16),
                               _buildTextField(
@@ -295,11 +374,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   child: ElevatedButton(
                                     onPressed: _selectedRole == null ? null : _register,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: _red,
+                                      backgroundColor: _navy,
                                       disabledBackgroundColor: Colors.grey.shade300,
                                       foregroundColor: Colors.white,
                                       elevation: 4,
-                                      shadowColor: _red.withOpacity(0.4),
+                                      shadowColor: _navy.withOpacity(0.4),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -421,7 +500,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text,
         name: _nameController.text,
         role: _selectedRole!,
-        gradeSection: _selectedRole == UserRole.student ? _gradeSectionController.text : null,
+        gradeSection: _selectedRole == UserRole.student ? '${_selectedYear ?? ''} - ${_selectedCourse ?? ''}' : null,
         contactNumber: _selectedRole == UserRole.student ? _contactController.text : null,
       );
 
@@ -437,7 +516,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _confirmPasswordController.clear();
           _gradeSectionController.clear();
           _contactController.clear();
-          setState(() => _selectedRole = null);
+          setState(() {
+            _selectedRole = null;
+            _selectedYear = null;
+            _selectedCourse = null;
+          });
 
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(

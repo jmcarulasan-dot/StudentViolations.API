@@ -4,7 +4,7 @@ namespace StudentViolationsAPI.IRepository
 {
     public interface IStudentRepository
     {
-        Task<Student> GetStudentByQrCode(string qrCode);
+        Task<Student> GetStudentByStudentId(string studentId);
         Task UpdateStudent(Student student);
     }
 }
