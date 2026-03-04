@@ -6,7 +6,7 @@ using StudentViolationsAPI.Model.Requests;
 namespace StudentViolationsAPI.Controllers
 {
     [ApiController]
-    [Route("")]
+    [Route("GetStudentViolation")]
     public class StudentController : ControllerBase
     {
         private readonly IStudentRepository _studentRepository;

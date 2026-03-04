@@ -1,7 +1,13 @@
 {
   "profiles": {
     "StudentViolations.API": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:7001;http://localhost:5001"
     },
     "IIS Express": {
       "commandName": "IISExpress",
@@ -16,8 +22,8 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "http://localhost:63955/",
-      "sslPort": 44369
+      "applicationUrl": "http://localhost:59506/",
+      "sslPort": 44311
     }
   }
 }
