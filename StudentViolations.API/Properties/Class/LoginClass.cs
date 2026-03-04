@@ -14,7 +14,7 @@ namespace StudentViolations.API.Class
 
         public LoginClass(IConfiguration configuration)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
 
         public async Task<ServiceResponse<object>> GetLogin(string username, string password)

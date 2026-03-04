@@ -18,7 +18,7 @@ namespace StudentViolationsAPI.Controllers
             _violationRepository = violationRepository;
         }
 
-        [HttpPost("validate")]
+        [HttpGet("validate")]
         public async Task<IActionResult> ValidateStudent([FromBody] ValidateStudentRequest request)
         {
             try
@@ -46,7 +46,7 @@ namespace StudentViolationsAPI.Controllers
             }
         }
 
-        [HttpPost("Violation")]
+        [HttpGet("Violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationRequest request)
         {
             try

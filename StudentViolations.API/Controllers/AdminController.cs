@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using StudentViolations.API.Model.Response;
-using StudentViolationsAPI.Data;
+using StudentViolationsAPI.IRepository;
 using StudentViolationsAPI.Model.Requests;
 
 namespace StudentViolations.API.Controllers
@@ -10,11 +9,11 @@ namespace StudentViolations.API.Controllers
     [Route("api/v1/admin")]
     public class AdminController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IAdminRepository _adminRepository;
 
-        public AdminController(AppDbContext context)
+        public AdminController(IAdminRepository adminRepository)
         {
-            _context = context;
+            _adminRepository = adminRepository;
         }
 
         [HttpGet("violations/summary")]
@@ -22,9 +21,7 @@ namespace StudentViolations.API.Controllers
         {
             try
             {
-                var violations = await _context.Violations
-                    .Where(v => v.Date >= request.StartDate && v.Date <= request.EndDate)
-                    .ToListAsync();
+                var violations = await _adminRepository.GetViolationsInDateRange(request.StartDate, request.EndDate);
 
                 if (violations == null || violations.Count == 0)
                 {
@@ -63,9 +60,7 @@ namespace StudentViolations.API.Controllers
         {
             try
             {
-                var violations = await _context.Violations
-                    .Where(v => v.StudentId == int.Parse(studentId))
-                    .ToListAsync();
+                var violations = await _adminRepository.GetViolationsByStudentId(studentId);
 
                 if (violations == null || violations.Count == 0)
                 {
