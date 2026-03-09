@@ -6,5 +6,6 @@ namespace StudentViolationsAPI.IRepository
     {
         Task<Student> GetStudentByStudentId(string studentId);
         Task UpdateStudent(Student student);
+        Task<List<Student>> GetAllStudents();
     }
 }

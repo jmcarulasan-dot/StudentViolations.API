@@ -25,5 +25,10 @@ namespace StudentViolationsAPI.Repository
             _context.Students.Update(student);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<List<Student>> GetAllStudents()
+        {
+            return await _context.Students.ToListAsync();
+        }
     }
 }

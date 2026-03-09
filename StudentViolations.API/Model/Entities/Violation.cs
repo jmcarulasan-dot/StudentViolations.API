@@ -28,5 +28,8 @@ namespace StudentViolationsAPI.Model.Entities
 
         [Column("GuardId")]
         public string GuardId { get; set; }
+
+        [Column("Status")]
+        public string Status { get; set; } = "Pending";
     }
 }

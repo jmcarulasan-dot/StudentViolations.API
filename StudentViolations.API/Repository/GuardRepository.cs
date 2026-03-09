@@ -1,15 +1,15 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using StudentViolationsAPI.Data;
-using StudentViolationsAPI.IRepository;
+using StudentViolations.API.IRepository;
 using StudentViolationsAPI.Model.Entities;
 
 namespace StudentViolationsAPI.Repository
 {
-    public class AdminRepository : IAdminRepository
+    public class GuardRepository : IGuardRepository
     {
         private readonly AppDbContext _context;
 
-        public AdminRepository(AppDbContext context)
+        public GuardRepository(AppDbContext context)
         {
             _context = context;
         }

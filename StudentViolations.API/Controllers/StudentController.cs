@@ -6,7 +6,7 @@ using StudentViolationsAPI.Model.Requests;
 namespace StudentViolationsAPI.Controllers
 {
     [ApiController]
-    [Route("GetStudentViolation")]
+    [Route("api/student")]
     public class StudentController : ControllerBase
     {
         private readonly IStudentRepository _studentRepository;
@@ -18,19 +18,16 @@ namespace StudentViolationsAPI.Controllers
             _violationRepository = violationRepository;
         }
 
-        [HttpGet("validate")]
+        [HttpGet("violation/validate")]
         public async Task<IActionResult> ValidateStudent([FromBody] ValidateStudentRequest request)
         {
             try
             {
                 var student = await _studentRepository.GetStudentByStudentId(request.QrCode);
                 if (student == null)
-                {
                     return NotFound(new { status = "error", message = "Student not found." });
-                }
 
                 var violations = await _violationRepository.GetViolationsByStudentId(student.Id.ToString());
-
                 return Ok(new
                 {
                     status = "success",
@@ -46,16 +43,14 @@ namespace StudentViolationsAPI.Controllers
             }
         }
 
-        [HttpGet("Violation")]
+        [HttpPost("violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationRequest request)
         {
             try
             {
                 var student = await _studentRepository.GetStudentByStudentId(request.StudentId.ToString());
                 if (student == null)
-                {
                     return BadRequest(new { status = "error", message = "Invalid Student." });
-                }
 
                 var violation = new Violation
                 {
@@ -68,7 +63,6 @@ namespace StudentViolationsAPI.Controllers
                 };
 
                 await _violationRepository.RecordViolation(violation);
-
                 var violations = await _violationRepository.GetViolationsByStudentId(request.StudentId.ToString());
 
                 return Ok(new

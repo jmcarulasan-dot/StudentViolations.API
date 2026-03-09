@@ -22,7 +22,6 @@ namespace StudentViolations.API.Class
         public async Task<ServiceResponse<object>> RegisterUser(User user)
         {
             var service = new ServiceResponse<object>();
-
             try
             {
                 using var connection = new SqlConnection(_connectionString);
@@ -40,6 +39,9 @@ namespace StudentViolations.API.Class
                 param.Add("Username", user.Username);
                 param.Add("PasswordHash", user.PasswordHash);
                 param.Add("Salt", user.Salt);
+                param.Add("Role", user.Role);
+                param.Add("Course", user.Course);
+                param.Add("Year", user.Year);
                 param.Add("statementType", "REGISTER");
 
                 await connection.ExecuteAsync(
@@ -47,13 +49,38 @@ namespace StudentViolations.API.Class
                     param,
                     commandType: CommandType.StoredProcedure);
 
+                if (user.Role.Equals("student", StringComparison.OrdinalIgnoreCase))
+                {
+                    var studentSql = @"INSERT INTO Students 
+                        (FirstName, LastName, Gender, ContactNumber, Email, 
+                         RegistrationDate, DateOfBirth, Address, Course, Year)
+                        VALUES 
+                        (@FirstName, @LastName, @Gender, @ContactNumber, @Email,
+                         @RegistrationDate, @DateOfBirth, @Address, @Course, @Year)";
+
+                    await connection.ExecuteAsync(studentSql, new
+                    {
+                        user.FirstName,
+                        user.LastName,
+                        user.Gender,
+                        user.ContactNumber,
+                        user.Email,
+                        RegistrationDate = DateTime.Now,
+                        DateOfBirth = user.DateOfBirth != null ? DateTime.Parse(user.DateOfBirth) : (DateTime?)null,
+                        user.Address,
+                        user.Course,
+                        user.Year
+                    });
+                }
+
+                service.Status = 1;
                 service.Message = "User registered successfully.";
             }
             catch (Exception ex)
             {
+                service.Status = 0;
                 service.Message = $"Registration error: {ex.Message}";
             }
-
             return service;
         }
     }

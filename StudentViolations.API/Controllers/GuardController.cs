@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using StudentViolations.API.IRepository;
 using StudentViolations.API.Model.Response;
 using StudentViolationsAPI.IRepository;
 using StudentViolationsAPI.Model.Requests;
@@ -6,14 +7,14 @@ using StudentViolationsAPI.Model.Requests;
 namespace StudentViolations.API.Controllers
 {
     [ApiController]
-    [Route("api/v1/admin")]
-    public class AdminController : ControllerBase
+    [Route("api/guard")]
+    public class GuardController : ControllerBase
     {
-        private readonly IAdminRepository _adminRepository;
+        private readonly IGuardRepository _guardRepository;
 
-        public AdminController(IAdminRepository adminRepository)
+        public GuardController(IGuardRepository guardRepository)
         {
-            _adminRepository = adminRepository;
+            _guardRepository = guardRepository;
         }
 
         [HttpGet("violations/summary")]
@@ -21,8 +22,7 @@ namespace StudentViolations.API.Controllers
         {
             try
             {
-                var violations = await _adminRepository.GetViolationsInDateRange(request.StartDate, request.EndDate);
-
+                var violations = await _guardRepository.GetViolationsInDateRange(request.StartDate, request.EndDate);
                 if (violations == null || violations.Count == 0)
                 {
                     return NotFound(new ViolationSummaryResponse
@@ -60,8 +60,7 @@ namespace StudentViolations.API.Controllers
         {
             try
             {
-                var violations = await _adminRepository.GetViolationsByStudentId(studentId);
-
+                var violations = await _guardRepository.GetViolationsByStudentId(studentId);
                 if (violations == null || violations.Count == 0)
                 {
                     return NotFound(new { status = "error", message = "No violations found for this student." });

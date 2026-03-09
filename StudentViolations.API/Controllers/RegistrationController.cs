@@ -14,11 +14,16 @@ namespace StudentViolations.API.Controllers
     public class RegistrationController : ControllerBase
     {
         private readonly ILoginRepository _loginRepository;
+        private readonly IRegisterRepository _registerRepository;
         private readonly ILogger<RegistrationController> _logger;
 
-        public RegistrationController(ILogger<RegistrationController> logger, ILoginRepository loginRepository)
+        public RegistrationController(
+            ILogger<RegistrationController> logger,
+            ILoginRepository loginRepository,
+            IRegisterRepository registerRepository)
         {
             _loginRepository = loginRepository;
+            _registerRepository = registerRepository;
             _logger = logger;
         }
 
@@ -26,14 +31,18 @@ namespace StudentViolations.API.Controllers
         public async Task<IActionResult> Register([FromBody] RegistrationModel model)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
+
             try
             {
                 if (await _loginRepository.UserExists(model.Username, model.Email))
                 {
-                    return BadRequest(new { status = "error", message = "User already exists with this username or email." });
+                    return BadRequest(new
+                    {
+                        status = 0,
+                        message = "User already exists with this username or email.",
+                        data = (object?)null
+                    });
                 }
 
                 string salt = GenerateSalt();
@@ -52,21 +61,39 @@ namespace StudentViolations.API.Controllers
                     Address = model.Address,
                     Salt = salt,
                     RegistrationDate = DateTime.Now,
-                    Role = model.Role
+                    Role = model.Role,
+                    Course = model.Course,
+                    Year = model.Year
                 };
 
-                await _loginRepository.RegisterUser(newUser);
-                return Ok(new { status = "success", message = "Registration successful!", role = model.Role });
+                await _registerRepository.RegisterUser(newUser);
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Registration successful!",
+                    data = new
+                    {
+                        id = "",
+                        username = model.Username,
+                        name = $"{model.FirstName} {model.LastName}",
+                        role = model.Role,
+                        email = model.Email,
+                        contactNumber = model.Number,
+                        course = model.Course,
+                        year = model.Year,
+                    }
+                });
             }
             catch (SqlException ex)
             {
                 _logger.LogError(ex, "SQL error during registration for user: {Username}", model.Username);
-                return StatusCode(500, new { status = "error", message = ex.Message });
+                return StatusCode(500, new { status = 0, message = ex.Message, data = (object?)null });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during registration for user: {Username}", model.Username);
-                return StatusCode(500, new { status = "error", message = ex.Message });
+                return StatusCode(500, new { status = 0, message = ex.Message, data = (object?)null });
             }
         }
 

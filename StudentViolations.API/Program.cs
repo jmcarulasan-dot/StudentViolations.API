@@ -19,15 +19,26 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "StudentViolations.API", Version = "v1" });
+    c.DocInclusionPredicate((docName, apiDesc) => true);
+    c.TagActionsBy(api =>
+    {
+        if (api.GroupName != null) return new[] { api.GroupName };
+        return new[] { api.ActionDescriptor.RouteValues["controller"] };
+    });
+});
+
 builder.Services.AddScoped<ILoginRepository, LoginClass>();
 builder.Services.AddScoped<IRegisterRepository, RegisterClass>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IViolationRepository, ViolationRepository>();
-builder.Services.AddScoped<IAdminRepository, AdminRepository>();
+builder.Services.AddScoped<IGuardRepository, GuardRepository>();
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 
 var app = builder.Build();
 
