@@ -1,12 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using StudentViolationsAPI.IRepository;
-using StudentViolationsAPI.Model.Entities;
-using StudentViolationsAPI.Model.Requests;
 
 namespace StudentViolationsAPI.Controllers
 {
     [ApiController]
     [Route("api/student")]
+    [Authorize(Roles = "Student")]
     public class StudentController : ControllerBase
     {
         private readonly IStudentRepository _studentRepository;
@@ -18,64 +18,80 @@ namespace StudentViolationsAPI.Controllers
             _violationRepository = violationRepository;
         }
 
-        [HttpGet("violation/validate")]
-        public async Task<IActionResult> ValidateStudent([FromBody] ValidateStudentRequest request)
+        // ✅ Student views own violations
+        [HttpGet("{studentId}/violations")]
+        public async Task<IActionResult> GetStudentViolations(string studentId)
         {
             try
             {
-                var student = await _studentRepository.GetStudentByStudentId(request.QrCode);
+                var student = await _studentRepository.GetStudentByStudentId(studentId);
                 if (student == null)
-                    return NotFound(new { status = "error", message = "Student not found." });
+                    return NotFound(new { status = 0, message = "Student not found." });
 
-                var violations = await _violationRepository.GetViolationsByStudentId(student.Id.ToString());
+                var violations = await _violationRepository.GetViolationsByStudentId(studentId);
+
                 return Ok(new
                 {
-                    status = "success",
-                    student_id = student.Id,
-                    name = student.Name,
-                    violation_count = violations.Count,
-                    warning_level = GetWarningLevel(violations.Count)
+                    status = 1,
+                    message = "Violations retrieved successfully.",
+                    data = new
+                    {
+                        student_id = student.Id,
+                        name = student.Name,
+                        total_violations = violations.Count,
+                        warning_level = GetWarningLevel(violations.Count),
+                        violations = violations.Select(v => new
+                        {
+                            id = v.Id,
+                            type = v.Type,
+                            details = v.Details,
+                            severity = v.Severity,
+                            date = v.Date,
+                            status = v.Status
+                        })
+                    }
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { status = "error", message = ex.Message });
+                return StatusCode(500, new { status = 0, message = ex.Message });
             }
         }
 
-        [HttpPost("violation")]
-        public async Task<IActionResult> RecordViolation([FromBody] RecordViolationRequest request)
+        // ✅ Student views own profile
+        [HttpGet("{studentId}/profile")]
+        public async Task<IActionResult> GetStudentProfile(string studentId)
         {
             try
             {
-                var student = await _studentRepository.GetStudentByStudentId(request.StudentId.ToString());
+                var student = await _studentRepository.GetStudentByStudentId(studentId);
                 if (student == null)
-                    return BadRequest(new { status = "error", message = "Invalid Student." });
+                    return NotFound(new { status = 0, message = "Student not found." });
 
-                var violation = new Violation
-                {
-                    StudentId = request.StudentId,
-                    Type = request.ViolationType,
-                    Details = request.Details,
-                    Date = DateTime.Now,
-                    GuardId = request.GuardId,
-                    Severity = request.Severity
-                };
-
-                await _violationRepository.RecordViolation(violation);
-                var violations = await _violationRepository.GetViolationsByStudentId(request.StudentId.ToString());
+                var violations = await _violationRepository.GetViolationsByStudentId(studentId);
 
                 return Ok(new
                 {
-                    status = "success",
-                    message = "Violation recorded.",
-                    new_violation_count = violations.Count,
-                    new_warning_level = GetWarningLevel(violations.Count)
+                    status = 1,
+                    message = "Profile retrieved successfully.",
+                    data = new
+                    {
+                        id = student.Id,
+                        name = student.Name,
+                        email = student.Email,
+                        gender = student.Gender,
+                        course = student.Course,
+                        year = student.Year,
+                        contact_number = student.ContactNumber,
+                        address = student.Address,
+                        total_violations = violations.Count,
+                        warning_level = GetWarningLevel(violations.Count)
+                    }
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { status = "error", message = ex.Message });
+                return StatusCode(500, new { status = 0, message = ex.Message });
             }
         }
 

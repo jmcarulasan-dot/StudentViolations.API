@@ -28,5 +28,25 @@ namespace StudentViolationsAPI.Repository
                 .Where(v => v.StudentId == id)
                 .ToListAsync();
         }
+
+        // ✅ Get student by QR code
+        public async Task<Student?> GetStudentByQrCode(string qrCode)
+        {
+            int id;
+            if (int.TryParse(qrCode, out id))
+            {
+                return await _context.Students
+                    .FirstOrDefaultAsync(s => s.Id == id);
+            }
+            return null;
+        }
+
+        // ✅ Record a violation
+        public async Task RecordViolation(Violation violation)
+        {
+            violation.Status = "Pending";
+            _context.Violations.Add(violation);
+            await _context.SaveChangesAsync();
+        }
     }
 }

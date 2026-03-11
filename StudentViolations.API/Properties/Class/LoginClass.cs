@@ -42,21 +42,35 @@ namespace StudentViolations.API.Class
 
                     if (hashedPassword == result.PasswordHash)
                     {
-                        service.Data = new { username = result.Username };
+                        service.Status = 1;
                         service.Message = "Login successful.";
+
+                        // ✅ Return full user data needed for JWT token
+                        service.Data = new
+                        {
+                            id = result.StudentID.ToString(),
+                            username = result.Username,
+                            name = $"{result.FirstName} {result.LastName}",
+                            role = result.Role,
+                            email = result.Email,
+                            contactNumber = result.ContactNumber
+                        };
                     }
                     else
                     {
+                        service.Status = 0;
                         service.Message = "Invalid username or password.";
                     }
                 }
                 else
                 {
+                    service.Status = 0;
                     service.Message = "Invalid username or password.";
                 }
             }
             catch (Exception ex)
             {
+                service.Status = 0;
                 service.Message = $"Login error: {ex.Message}";
             }
             return service;
@@ -95,10 +109,12 @@ namespace StudentViolations.API.Class
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                var sql = @"INSERT INTO Student_Login 
-                    (Username, PasswordHash, Salt, Email, Gender, ContactNumber, RegistrationDate, Role, FirstName, LastName)
+                var sql = @"INSERT INTO Users 
+                    (Username, PasswordHash, Salt, Email, Gender, ContactNumber, 
+                     RegistrationDate, Role, FirstName, LastName)
                     VALUES 
-                    (@Username, @PasswordHash, @Salt, @Email, @Gender, @ContactNumber, @RegistrationDate, @Role, @FirstName, @LastName)";
+                    (@Username, @PasswordHash, @Salt, @Email, @Gender, @ContactNumber, 
+                     @RegistrationDate, @Role, @FirstName, @LastName)";
 
                 await connection.ExecuteAsync(sql, new
                 {
@@ -114,13 +130,14 @@ namespace StudentViolations.API.Class
                     user.LastName
                 });
 
-               
                 if (user.Role.Equals("Student", StringComparison.OrdinalIgnoreCase))
                 {
                     var studentSql = @"INSERT INTO Students 
-                     (FirstName, LastName, Gender, ContactNumber, Email, RegistrationDate, DateOfBirth, Address)
-                     VALUES 
-                     (@FirstName, @LastName, @Gender, @ContactNumber, @Email, @RegistrationDate, @DateOfBirth, @Address)";
+                        (FirstName, LastName, Gender, ContactNumber, Email, 
+                         RegistrationDate, DateOfBirth, Address)
+                        VALUES 
+                        (@FirstName, @LastName, @Gender, @ContactNumber, @Email,
+                         @RegistrationDate, @DateOfBirth, @Address)";
 
                     await connection.ExecuteAsync(studentSql, new
                     {
@@ -130,16 +147,18 @@ namespace StudentViolations.API.Class
                         user.ContactNumber,
                         user.Email,
                         RegistrationDate = DateTime.Now,
-                        DateOfBirth = user.DateOfBirth != null ? DateTime.Parse(user.DateOfBirth) : (DateTime?)null,
+                        DateOfBirth = user.DateOfBirth,
                         user.Address
                     });
                 }
 
+                service.Status = 1;
                 service.Message = "Registration successful.";
                 service.Data = new { username = user.Username, role = user.Role };
             }
             catch (Exception ex)
             {
+                service.Status = 0;
                 service.Message = $"Registration error: {ex.Message}";
             }
             return service;

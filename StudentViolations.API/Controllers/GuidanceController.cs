@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using StudentViolationsAPI.IRepository;
 
 namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/guidance")]
+    [Authorize(Roles = "guidance")] // ✅ Only guidance can access
     public class GuidanceController : ControllerBase
     {
         private readonly IStudentRepository _studentRepository;
@@ -16,7 +18,6 @@ namespace StudentViolations.API.Controllers
             _violationRepository = violationRepository;
         }
 
-        // GET all students with their violation count
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
         {
@@ -48,7 +49,6 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // GET full report of a specific student
         [HttpGet("students/{studentId}/report")]
         public async Task<IActionResult> GetStudentReport(string studentId)
         {
@@ -94,7 +94,6 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // GET violations grouped by severity
         [HttpGet("violations/severity")]
         public async Task<IActionResult> GetViolationsBySeverity()
         {
@@ -126,7 +125,6 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // GET pending violations (needs guidance review)
         [HttpGet("violations/pending")]
         public async Task<IActionResult> GetPendingViolations()
         {

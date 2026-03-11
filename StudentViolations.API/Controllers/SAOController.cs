@@ -1,20 +1,29 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using StudentViolationsAPI.IRepository;
+using StudentViolationsAPI.Model.Entities;
+using StudentViolationsAPI.Model.Requests;
 
 namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/sao")]
     [ApiExplorerSettings(GroupName = "Admin")]
+    [Authorize(Roles = "sao")] // ✅ Only SAO can access
     public class SAOController : ControllerBase
     {
         private readonly IViolationRepository _violationRepository;
         private readonly IStudentRepository _studentRepository;
+        private readonly ISAORepository _saoRepository;
 
-        public SAOController(IViolationRepository violationRepository, IStudentRepository studentRepository)
+        public SAOController(
+            IViolationRepository violationRepository,
+            IStudentRepository studentRepository,
+            ISAORepository saoRepository)
         {
             _violationRepository = violationRepository;
             _studentRepository = studentRepository;
+            _saoRepository = saoRepository;
         }
 
         [HttpGet("violations")]
@@ -152,6 +161,101 @@ namespace StudentViolations.API.Controllers
 
                 await _violationRepository.DeleteViolation(id);
                 return Ok(new { status = 1, message = "Violation deleted successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { status = 0, message = ex.Message });
+            }
+        }
+
+        [HttpGet("users")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            try
+            {
+                var users = await _saoRepository.GetAllUsers();
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Users retrieved successfully.",
+                    data = users.Select(u => new
+                    {
+                        id = u.Id,
+                        username = u.Username,
+                        name = $"{u.FirstName} {u.LastName}",
+                        email = u.Email,
+                        role = u.Role,
+                        gender = u.Gender,
+                        course = u.Course,
+                        year = u.Year,
+                        contact_number = u.ContactNumber,
+                        registration_date = u.RegistrationDate
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { status = 0, message = ex.Message });
+            }
+        }
+
+        [HttpPut("users/{id}")]
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequest request)
+        {
+            try
+            {
+                var user = await _saoRepository.GetUserById(id);
+                if (user == null)
+                    return NotFound(new { status = 0, message = "User not found." });
+
+                user.FirstName = request.FirstName ?? user.FirstName;
+                user.LastName = request.LastName ?? user.LastName;
+                user.Email = request.Email ?? user.Email;
+                user.ContactNumber = request.ContactNumber ?? user.ContactNumber;
+                user.Gender = request.Gender ?? user.Gender;
+                user.Address = request.Address ?? user.Address;
+                user.Course = request.Course ?? user.Course;
+                user.Year = request.Year ?? user.Year;
+                user.Role = request.Role ?? user.Role;
+
+                await _saoRepository.UpdateUser(user);
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = "User updated successfully.",
+                    data = new
+                    {
+                        id = user.Id,
+                        username = user.Username,
+                        name = $"{user.FirstName} {user.LastName}",
+                        role = user.Role,
+                        email = user.Email
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { status = 0, message = ex.Message });
+            }
+        }
+
+        [HttpDelete("users/{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            try
+            {
+                var user = await _saoRepository.GetUserById(id);
+                if (user == null)
+                    return NotFound(new { status = 0, message = "User not found." });
+
+                await _saoRepository.DeleteUser(id);
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = $"User {user.Username} deleted successfully."
+                });
             }
             catch (Exception ex)
             {

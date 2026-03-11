@@ -66,7 +66,7 @@ namespace StudentViolations.API.Class
                         user.ContactNumber,
                         user.Email,
                         RegistrationDate = DateTime.Now,
-                        DateOfBirth = user.DateOfBirth != null ? DateTime.Parse(user.DateOfBirth) : (DateTime?)null,
+                        DateOfBirth = user.DateOfBirth,
                         user.Address,
                         user.Course,
                         user.Year

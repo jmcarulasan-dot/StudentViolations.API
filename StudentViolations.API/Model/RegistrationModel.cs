@@ -23,5 +23,6 @@ namespace StudentViolations.API.Model
         public string Role { get; set; }
         public string? Course { get; set; }
         public string? Year { get; set; }
+   
     }
 }
