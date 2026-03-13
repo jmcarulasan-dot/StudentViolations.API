@@ -6,7 +6,7 @@ namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/guidance")]
-    [Authorize(Roles = "guidance")] // ✅ Only guidance can access
+    [Authorize(Roles = "guidance")] 
     public class GuidanceController : ControllerBase
     {
         private readonly IStudentRepository _studentRepository;

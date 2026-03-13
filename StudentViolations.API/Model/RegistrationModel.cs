@@ -17,8 +17,10 @@ namespace StudentViolations.API.Model
         public string DateOfBirth { get; set; }
         public string Gender { get; set; }
         public string Address { get; set; }
+
         [Phone(ErrorMessage = "Invalid phone number.")]
-        public string Number { get; set; }
+        public string? Number { get; set; }
+
         [Required(ErrorMessage = "Role is required.")]
         public string Role { get; set; }
         public string? Course { get; set; }

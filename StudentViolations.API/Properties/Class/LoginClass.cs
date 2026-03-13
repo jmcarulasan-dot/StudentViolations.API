@@ -45,7 +45,6 @@ namespace StudentViolations.API.Class
                         service.Status = 1;
                         service.Message = "Login successful.";
 
-                        // ✅ Return full user data needed for JWT token
                         service.Data = new
                         {
                             id = result.StudentID.ToString(),

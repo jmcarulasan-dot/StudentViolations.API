@@ -27,7 +27,7 @@ namespace StudentViolations.API.Controllers
             _violationRepository = violationRepository;
         }
 
-        // ✅ Get violation summary by date range
+        // Get violation summary by date range
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetViolationSummary([FromQuery] GetSummaryRequest request)
         {
@@ -66,7 +66,7 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // ✅ Get violation history of a student
+        //  Get violation history of a student
         [HttpGet("violations/{studentId}")]
         public async Task<IActionResult> GetViolationHistory(string studentId)
         {
@@ -95,7 +95,6 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // ✅ Moved from StudentController - Validate student by QR code
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string qrCode)
         {
@@ -121,7 +120,6 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // ✅ Moved from StudentController - Record a violation
         [HttpPost("student/violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationRequest request)
         {

@@ -15,7 +15,7 @@ namespace StudentViolationsAPI.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<User>().ToTable("Users"); // ✅ changed
+            modelBuilder.Entity<User>().ToTable("Users"); 
             modelBuilder.Entity<Student>().ToTable("Students");
             modelBuilder.Entity<Violation>().ToTable("Violations");
             base.OnModelCreating(modelBuilder);

@@ -44,21 +44,18 @@ namespace StudentViolations.API.Controllers
 
                 var response = await _loginRepository.GetLogin(login.Username, login.Password);
 
-                // ✅ Check if login was successful
                 if (response == null || response.Status == 0)
                 {
                     _logger.LogWarning("Invalid credentials for user: {Username}", login.Username);
                     return Unauthorized(new { status = 0, message = "Invalid username or password." });
                 }
 
-                // ✅ Get user data from response
                 dynamic userData = response.Data;
                 string username = userData.username;
                 string role = userData.role;
                 string userId = userData.id?.ToString() ?? "";
                 string name = userData.name ?? "";
 
-                // ✅ Generate JWT Token
                 var token = GenerateToken(userId, username, role, name);
 
                 _logger.LogInformation("Login successful for user: {Username}", login.Username);
@@ -90,7 +87,7 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // ✅ Generate JWT Token
+        // Generate JWT Token
         private string GenerateToken(string userId, string username, string role, string name)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
@@ -99,7 +96,6 @@ namespace StudentViolations.API.Controllers
             var audience = jwtSettings["Audience"];
             var expiryHours = int.Parse(jwtSettings["ExpiryInHours"]);
 
-            // ✅ Claims — data stored inside the token
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, username),

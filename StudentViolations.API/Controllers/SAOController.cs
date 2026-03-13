@@ -9,7 +9,7 @@ namespace StudentViolations.API.Controllers
     [ApiController]
     [Route("api/sao")]
     [ApiExplorerSettings(GroupName = "Admin")]
-    [Authorize(Roles = "sao")] // ✅ Only SAO can access
+    [Authorize(Roles = "sao")]
     public class SAOController : ControllerBase
     {
         private readonly IViolationRepository _violationRepository;

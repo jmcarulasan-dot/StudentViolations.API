@@ -18,7 +18,6 @@ namespace StudentViolationsAPI.Controllers
             _violationRepository = violationRepository;
         }
 
-        // ✅ Student views own violations
         [HttpGet("{studentId}/violations")]
         public async Task<IActionResult> GetStudentViolations(string studentId)
         {
@@ -58,7 +57,6 @@ namespace StudentViolationsAPI.Controllers
             }
         }
 
-        // ✅ Student views own profile
         [HttpGet("{studentId}/profile")]
         public async Task<IActionResult> GetStudentProfile(string studentId)
         {

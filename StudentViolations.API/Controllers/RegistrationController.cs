@@ -57,7 +57,6 @@ namespace StudentViolations.API.Controllers
                     ContactNumber = model.Number,
                     FirstName = model.FirstName,
                     LastName = model.LastName,
-                    // ✅ Fixed - parse string from request to DateTime?
                     DateOfBirth = !string.IsNullOrEmpty(model.DateOfBirth) ? DateTime.Parse(model.DateOfBirth) : (DateTime?)null,
                     Address = model.Address,
                     Salt = salt,

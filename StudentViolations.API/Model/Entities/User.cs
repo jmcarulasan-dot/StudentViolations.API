@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace StudentViolationsAPI.Model.Entities
 {
-    [Table("Users")] // ✅ fixed from "User" to "Users"
+    [Table("Users")] 
     public class User
     {
         [Key]
@@ -30,7 +30,7 @@ namespace StudentViolationsAPI.Model.Entities
         public string LastName { get; set; }
 
         [Column("DateOfBirth")]
-        public DateTime? DateOfBirth { get; set; } // ✅ fixed from string to DateTime?
+        public DateTime? DateOfBirth { get; set; } 
 
         [Column("Gender")]
         public string Gender { get; set; }
@@ -54,6 +54,6 @@ namespace StudentViolationsAPI.Model.Entities
         public string? Year { get; set; }
 
         [NotMapped]
-        public string Number { get; set; }
+        public string? Number { get; set; }
     }
 }

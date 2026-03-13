@@ -35,7 +35,6 @@ namespace StudentViolationsAPI.Model.Entities
         [Column("RegistrationDate")]
         public DateTime? RegistrationDate { get; set; }
 
-        // ✅ Added Course and Year
         [Column("Course")]
         public string? Course { get; set; }
 

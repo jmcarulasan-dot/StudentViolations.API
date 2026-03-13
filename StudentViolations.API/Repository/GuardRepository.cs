@@ -29,7 +29,6 @@ namespace StudentViolationsAPI.Repository
                 .ToListAsync();
         }
 
-        // ✅ Get student by QR code
         public async Task<Student?> GetStudentByQrCode(string qrCode)
         {
             int id;
@@ -41,7 +40,7 @@ namespace StudentViolationsAPI.Repository
             return null;
         }
 
-        // ✅ Record a violation
+      
         public async Task RecordViolation(Violation violation)
         {
             violation.Status = "Pending";

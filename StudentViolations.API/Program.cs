@@ -11,7 +11,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ CORS
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -22,7 +22,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ✅ JWT Authentication
+// JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
 
@@ -45,11 +45,11 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// ✅ Controllers
+// Controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// ✅ Swagger with JWT
+// Swagger with JWT
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "StudentViolations.API", Version = "v1" });
@@ -63,11 +63,11 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
+        Type = SecuritySchemeType.Http,  
+        Scheme = "bearer",              
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter: Bearer {your token here}"
+        Description = "Enter your token only"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -86,7 +86,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ✅ Repositories
+// Repositories
 builder.Services.AddScoped<ILoginRepository, LoginClass>();
 builder.Services.AddScoped<IRegisterRepository, RegisterClass>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
@@ -94,13 +94,13 @@ builder.Services.AddScoped<IViolationRepository, ViolationRepository>();
 builder.Services.AddScoped<IGuardRepository, GuardRepository>();
 builder.Services.AddScoped<ISAORepository, SAORepository>();
 
-// ✅ Database
+// Database
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
-// ✅ Middleware
+// Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -109,7 +109,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
-app.UseAuthentication(); // ✅ must be before UseAuthorization
+app.UseAuthentication(); 
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
