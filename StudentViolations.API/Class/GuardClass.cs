@@ -1,0 +1,144 @@
+﻿using Dapper;
+using Microsoft.Data.SqlClient;
+using StudentViolations.API.IRepository;
+using System.Data;
+
+namespace StudentViolations.API.Class
+{
+    // Handles all guard-related database operations
+    public class GuardClass : IGuardRepository
+    {
+        private readonly string _connectionString;
+
+        public GuardClass(IConfiguration configuration)
+        {
+            _connectionString = configuration.GetConnectionString("StudentViolationsdb");
+        }
+
+        // Gets all violations between two dates
+        public async Task<List<dynamic>> GetViolationsInDateRange(DateTime startDate, DateTime endDate)
+        {
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+
+                DynamicParameters param = new DynamicParameters();
+                param.Add("statementType", "GETBYDATE");
+                param.Add("StartDate", startDate);
+
+                // Call SP_GUARD and return the list of violations found
+                var result = await connection.QueryAsync(
+                    "SP_GUARD", param,
+                    commandType: CommandType.StoredProcedure);
+
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"GetViolationsInDateRange error: {ex.Message}");
+            }
+            finally
+            {
+                connection.Close();
+            }
+        }
+
+        // Gets all violations for a specific student using their StudentNo
+        public async Task<List<dynamic>> GetViolationsByStudentId(string studentNo)
+        {
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+
+                DynamicParameters param = new DynamicParameters();
+                param.Add("statementType", "GETBYSTUDENT");
+                param.Add("StudentNo", studentNo);
+
+                // Call SP_GUARD and return all violations belonging to this student
+                var result = await connection.QueryAsync(
+                    "SP_GUARD", param,
+                    commandType: CommandType.StoredProcedure);
+
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"GetViolationsByStudentId error: {ex.Message}");
+            }
+            finally
+            {
+                connection.Close();
+            }
+        }
+
+        // Finds a student by scanning their QR code (StudentNo)
+        public async Task<dynamic?> GetStudentByQrCode(string qrCode)
+        {
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+
+                DynamicParameters param = new DynamicParameters();
+                param.Add("statementType", "GETSTUDENTBYQR");
+                param.Add("StudentNo", qrCode);
+
+                // Returns one student record or null if not found
+                var result = await connection.QueryFirstOrDefaultAsync(
+                    "SP_GUARD", param,
+                    commandType: CommandType.StoredProcedure);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"GetStudentByQrCode error: {ex.Message}");
+            }
+            finally
+            {
+                connection.Close();
+            }
+        }
+
+        // Saves a new violation record to the database
+        // Uses QueryAsync instead of ExecuteAsync so we can catch RAISERROR messages from the SP
+        public async Task RecordViolation(dynamic violation)
+        {
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+
+                DynamicParameters param = new DynamicParameters();
+                param.Add("statementType", "RECORDVIOLATION");
+                param.Add("StudentId", violation.StudentId);
+                param.Add("ViolationName", violation.Type);
+                param.Add("Description", violation.Details);
+                param.Add("Severity", violation.Severity); // Fix: was missing before
+                param.Add("GuardId", violation.GuardId);
+
+                // Use QueryAsync so we can read the ErrorMessage returned by RAISERROR
+                var result = await connection.QueryAsync(
+                    "SP_GUARD", param,
+                    commandType: CommandType.StoredProcedure);
+
+                // If the SP returned a row it means RAISERROR was triggered — throw the error message
+                var errorRow = result.FirstOrDefault();
+                if (errorRow != null && errorRow.ErrorMessage != null)
+                {
+                    throw new Exception((string)errorRow.ErrorMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"RecordViolation error: {ex.Message}");
+            }
+            finally
+            {
+                connection.Close();
+            }
+        }
+    }
+}
