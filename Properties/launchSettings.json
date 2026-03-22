@@ -16,7 +16,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "http://192.168.50.27:5277"
+      "applicationUrl": "http://192.168.254.148:5277"
     },
     "IIS Express": {
       "commandName": "IISExpress",
