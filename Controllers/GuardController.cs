@@ -106,7 +106,7 @@ namespace StudentViolations.API.Controllers
 
         // GET api/guard/violations/student?studentNo=xxx
         // Returns all violations for a specific student using their StudentNo
-        [HttpGet("violations/student")]
+        [HttpGet("violations/student-list's")]
         public async Task<IActionResult> GetViolationHistory([FromQuery] string studentNo)
         {
             try
@@ -185,6 +185,63 @@ namespace StudentViolations.API.Controllers
             else if (violationCount == 2) return "orange";
             else if (violationCount == 1) return "yellow";
             else return "green";
+        }
+
+        // GET api/guard/students
+        // Returns all registered students
+        [HttpGet("students")]
+        public async Task<IActionResult> GetAllStudents()
+        {
+            try
+            {
+                List<dynamic> students = await _guardRepository.GetAllStudents();
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Success",
+                    data = students.Select(s => new
+                    {
+                        student_no = s.StudentNo,
+                        name = $"{s.FirstName} {s.LastName}",
+                        course = s.Course,
+                        year = s.Year
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { status = 0, message = ex.Message });
+            }
+        }
+
+        // GET api/guard/students/{studentNo}
+        // Returns a specific student by their StudentNo
+        [HttpGet("students/exist")]
+        public async Task<IActionResult> GetStudentByStudentNo(string studentNo)
+        {
+            try
+            {
+                dynamic student = await _guardRepository.GetStudentByStudentNo(studentNo);
+                if (student == null)
+                    return NotFound(new { status = 0, message = "Student not found." });
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Success",
+                    data = new
+                    {
+                        student_no = student.StudentNo,
+                        name = $"{student.FirstName} {student.LastName}",
+                        course = student.Course,
+                        year = student.Year
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { status = 0, message = ex.Message });
+            }
         }
     }
 }

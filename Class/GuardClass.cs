@@ -140,5 +140,60 @@ namespace StudentViolations.API.Class
                 connection.Close();
             }
         }
+
+        // Gets all registered students
+        public async Task<List<dynamic>> GetAllStudents()
+        {
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+
+                DynamicParameters param = new DynamicParameters();
+                param.Add("statementType", "GETALLSTUDENTS");
+
+                var result = await connection.QueryAsync(
+                    "SP_GUARD", param,
+                    commandType: CommandType.StoredProcedure);
+
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"GetAllStudents error: {ex.Message}");
+            }
+            finally
+            {
+                connection.Close();
+            }
+        }
+
+        // Gets a specific student by their StudentNo
+        public async Task<dynamic?> GetStudentByStudentNo(string studentNo)
+        {
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+
+                DynamicParameters param = new DynamicParameters();
+                param.Add("statementType", "GETSTUDENTBYNO");
+                param.Add("StudentNo", studentNo);
+
+                var result = await connection.QueryFirstOrDefaultAsync(
+                    "SP_GUARD", param,
+                    commandType: CommandType.StoredProcedure);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"GetStudentByStudentNo error: {ex.Message}");
+            }
+            finally
+            {
+                connection.Close();
+            }
+        }
     }
 }

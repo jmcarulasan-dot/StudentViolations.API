@@ -14,5 +14,11 @@
 
         // Saves a new violation record to the database
         Task RecordViolation(dynamic violation);
+
+        // Gets all registered students
+        Task<List<dynamic>> GetAllStudents();
+
+        // Gets a specific student by their StudentNo
+        Task<dynamic?> GetStudentByStudentNo(string studentNo);
     }
 }
