@@ -26,6 +26,7 @@ namespace StudentViolations.API.Class
                 DynamicParameters param = new DynamicParameters();
                 param.Add("statementType", "GETBYDATE");
                 param.Add("StartDate", startDate);
+                param.Add("EndDate", endDate); // Fix: EndDate was missing before
 
                 // Call SP_GUARD and return the list of violations found
                 var result = await connection.QueryAsync(
@@ -116,7 +117,7 @@ namespace StudentViolations.API.Class
                 param.Add("StudentId", violation.StudentId);
                 param.Add("ViolationName", violation.Type);
                 param.Add("Description", violation.Details);
-                param.Add("Severity", violation.Severity); // Fix: was missing before
+                param.Add("Severity", violation.Severity);
                 param.Add("GuardId", violation.GuardId);
 
                 // Use QueryAsync so we can read the ErrorMessage returned by RAISERROR
