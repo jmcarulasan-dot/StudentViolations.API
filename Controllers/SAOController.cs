@@ -60,6 +60,44 @@ namespace StudentViolations.API.Controllers
             }
         }
 
+        // GET api/sao/violations/{id}
+        // Returns a single violation by ID with student number and guard name attached
+        [HttpGet("violations/{id}")]
+        public async Task<IActionResult> GetViolationById(int id)
+        {
+            try
+            {
+                dynamic violation = await _violationRepository.GetViolationById(id);
+                if (violation == null)
+                    return NotFound(new { status = 0, message = "Violation not found." });
+
+                List<dynamic> students = await _studentRepository.GetAllStudents();
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Success",
+                    data = new
+                    {
+                        id = violation.ViolationID,
+                        // Match the violation's StudentId to the Students list to get their StudentNo
+                        student_no = students
+                            .FirstOrDefault(s => s.StudentID == violation.StudentId)?.StudentNo,
+                        type = violation.ViolationName,
+                        details = violation.Description,
+                        severity = violation.Severity,
+                        date = violation.ViolationDate,
+                        recorded_by = violation.GuardName,
+                        status = violation.Status
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { status = 0, message = ex.Message });
+            }
+        }
+
         // GET api/sao/violations/by-status/{status}
         // Filters violations by status — accepts Pending, Approved, or Rejected
         [HttpGet("violations/by-status/{status}")]
