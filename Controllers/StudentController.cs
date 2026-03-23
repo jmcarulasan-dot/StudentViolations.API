@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StudentViolationsAPI.IRepository;
+using System.Security.Claims;
 
 namespace StudentViolationsAPI.Controllers
 {
@@ -18,19 +19,35 @@ namespace StudentViolationsAPI.Controllers
             _violationRepository = violationRepository;
         }
 
-        // GET api/student/{studentNo}/violations
-        // Returns all violations belonging to a specific student
-        [HttpGet("{studentNo}/violations")]
-        public async Task<IActionResult> GetStudentViolations(string studentNo)
+        // Helper: Gets the StudentNo of the currently logged-in student from JWT token
+        private string GetLoggedInStudentNo()
+        {
+            // StudentNo is stored as "studentNo" claim in the JWT token during login
+            return User.FindFirstValue("studentNo") ?? string.Empty;
+        }
+
+        // GET api/student/violations
+        // Returns violations for the currently logged-in student ONLY
+        // Security fix (Day 2): StudentNo comes from JWT token — student cannot access other students' data
+        [HttpGet("violations")]
+        public async Task<IActionResult> GetMyViolations()
         {
             try
             {
-                // Find the student first to confirm they exist
+                string studentNo = GetLoggedInStudentNo();
+                if (string.IsNullOrEmpty(studentNo))
+                    return Unauthorized(new { status = 0, message = "Invalid token. Please login again." });
+
                 var student = await _studentRepository.GetStudentByStudentId(studentNo);
                 if (student == null)
                     return NotFound(new { status = 0, message = "Student not found." });
 
                 var violations = await _violationRepository.GetViolationsByStudentId(studentNo);
+
+                // Day 14 — Count violations by status
+                int pendingCount = violations.Count(v => ((string)v.Status).Equals("Pending", StringComparison.OrdinalIgnoreCase));
+                int approvedCount = violations.Count(v => ((string)v.Status).Equals("Approved", StringComparison.OrdinalIgnoreCase));
+                int rejectedCount = violations.Count(v => ((string)v.Status).Equals("Rejected", StringComparison.OrdinalIgnoreCase));
 
                 return Ok(new
                 {
@@ -41,6 +58,9 @@ namespace StudentViolationsAPI.Controllers
                         student_no = student.StudentNo,
                         name = $"{student.FirstName} {student.LastName}",
                         total_violations = violations.Count,
+                        pending = pendingCount,
+                        approved = approvedCount,
+                        rejected = rejectedCount,
                         warning_level = GetWarningLevel(violations.Count),
                         violations = violations.Select(v => new
                         {
@@ -61,18 +81,22 @@ namespace StudentViolationsAPI.Controllers
             }
         }
 
-        // GET api/student/{studentNo}/profile
-        // Returns a student's personal info along with their current warning level
-        [HttpGet("{studentNo}/profile")]
-        public async Task<IActionResult> GetStudentProfile(string studentNo)
+        // GET api/student/profile
+        // Returns the logged-in student's own profile only
+        // Security fix (Day 2): uses JWT token — student cannot view other students' profiles
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetMyProfile()
         {
             try
             {
+                string studentNo = GetLoggedInStudentNo();
+                if (string.IsNullOrEmpty(studentNo))
+                    return Unauthorized(new { status = 0, message = "Invalid token. Please login again." });
+
                 var student = await _studentRepository.GetStudentByStudentId(studentNo);
                 if (student == null)
                     return NotFound(new { status = 0, message = "Student not found." });
 
-                // Get violations to calculate the warning level shown on the profile
                 var violations = await _violationRepository.GetViolationsByStudentId(studentNo);
 
                 return Ok(new
@@ -100,18 +124,22 @@ namespace StudentViolationsAPI.Controllers
             }
         }
 
-        // GET api/student/{studentNo}/qrcode
-        // Returns the student's QR code as a Base64 string for display or printing
-        [HttpGet("{studentNo}/qrcode")]
-        public async Task<IActionResult> GetStudentQrCode(string studentNo)
+        // GET api/student/qrcode
+        // Returns the logged-in student's own QR code only
+        // Security fix (Day 2): uses JWT token — student cannot view other students' QR codes
+        [HttpGet("qrcode")]
+        public async Task<IActionResult> GetMyQrCode()
         {
             try
             {
+                string studentNo = GetLoggedInStudentNo();
+                if (string.IsNullOrEmpty(studentNo))
+                    return Unauthorized(new { status = 0, message = "Invalid token. Please login again." });
+
                 var student = await _studentRepository.GetStudentByStudentId(studentNo);
                 if (student == null)
                     return NotFound(new { status = 0, message = "Student not found." });
 
-                // QR code might be null if student was registered without a StudentNo
                 if (student.QRCode == null)
                     return NotFound(new { status = 0, message = "QR code not found for this student." });
 

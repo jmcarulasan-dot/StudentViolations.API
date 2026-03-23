@@ -1,9 +1,9 @@
-﻿using Dapper; 
-using Microsoft.AspNetCore.Cryptography.KeyDerivation; 
-using Microsoft.Data.SqlClient; 
-using StudentViolations.API.IRepository; 
-using StudentViolations.API.Model; 
-using System.Data; 
+﻿using Dapper;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using Microsoft.Data.SqlClient;
+using StudentViolations.API.IRepository;
+using StudentViolations.API.Model;
+using System.Data;
 
 namespace StudentViolations.API.Class
 {
@@ -27,22 +27,20 @@ namespace StudentViolations.API.Class
 
                 DynamicParameters param = new DynamicParameters();
                 param.Add("username", username);
-                param.Add("email", ""); 
-                param.Add("statementType", "GETLOGIN"); 
+                param.Add("email", "");
+                param.Add("statementType", "GETLOGIN");
                 var result = (await connection.QueryAsync(
                     "SP_STUDENT_GETUSERLOGIN",
                     param,
                     commandType: CommandType.StoredProcedure)).FirstOrDefault();
 
-                // Check if a user record was found.
                 if (result != null)
                 {
-                    string salt = result.Salt; 
-                    string hashedPassword = HashPassword(password, salt); 
+                    string salt = result.Salt;
+                    string hashedPassword = HashPassword(password, salt);
 
                     if (hashedPassword == result.PasswordHash)
                     {
-                        // Successful login: set status, message, and user data.
                         service.Status = 1;
                         service.Message = "Login successful.";
                         service.Data = new
@@ -52,7 +50,9 @@ namespace StudentViolations.API.Class
                             name = $"{result.FirstName} {result.LastName}",
                             role = result.Role,
                             email = result.Email,
-                            contactNumber = result.ContactNumber
+                            contactNumber = result.ContactNumber,
+                            // Added StudentNo for JWT token — used for student security
+                            studentNo = result.StudentNo ?? ""
                         };
                     }
                     else
@@ -78,6 +78,7 @@ namespace StudentViolations.API.Class
             }
             return service;
         }
+
         // Checks if a username or email already exists in the system.
         public async Task<bool> UserExists(string username, string email)
         {
@@ -106,6 +107,7 @@ namespace StudentViolations.API.Class
                 connection.Close();
             }
         }
+
         // Registers a new user in the system.
         public async Task<ServiceResponse<object>> RegisterUser(User user)
         {
@@ -114,14 +116,12 @@ namespace StudentViolations.API.Class
             try
             {
                 await connection.OpenAsync();
-                // SQL statement to insert a new user record.
                 string sql = @"INSERT INTO Users 
                     (Username, PasswordHash, Salt, Email, Gender, ContactNumber, 
                      RegistrationDate, Role, FirstName, LastName)
                     VALUES 
                     (@Username, @PasswordHash, @Salt, @Email, @Gender, @ContactNumber, 
                      @RegistrationDate, @Role, @FirstName, @LastName)";
-                // Execute the insert command using Dapper.
                 await connection.ExecuteAsync(sql, new
                 {
                     user.Username,
@@ -130,7 +130,7 @@ namespace StudentViolations.API.Class
                     user.Email,
                     user.Gender,
                     user.ContactNumber,
-                    RegistrationDate = DateTime.Now, 
+                    RegistrationDate = DateTime.Now,
                     user.Role,
                     user.FirstName,
                     user.LastName
@@ -151,18 +151,19 @@ namespace StudentViolations.API.Class
             }
             return service;
         }
+
         // Helper method to hash a password using PBKDF2.
         private string HashPassword(string password, string salt)
         {
-            byte[] saltBytes = Convert.FromBase64String(salt); 
+            byte[] saltBytes = Convert.FromBase64String(salt);
             string hashed = Convert.ToBase64String(
                 KeyDerivation.Pbkdf2(
                     password: password,
                     salt: saltBytes,
-                    prf: KeyDerivationPrf.HMACSHA256, 
+                    prf: KeyDerivationPrf.HMACSHA256,
                     iterationCount: 10000,
                     numBytesRequested: 256 / 8));
-            return hashed; 
+            return hashed;
         }
     }
 }

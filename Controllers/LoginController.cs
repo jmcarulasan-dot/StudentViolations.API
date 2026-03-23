@@ -59,8 +59,10 @@ namespace StudentViolations.API.Controllers
                 string role = userData.role;
                 string userId = userData.id?.ToString() ?? "";
                 string name = userData.name ?? "";
+                // Get StudentNo from login response — used for student security
+                string studentNo = userData.studentNo ?? "";
 
-                var token = GenerateToken(userId, username, role, name);
+                var token = GenerateToken(userId, username, role, name, studentNo);
 
                 _logger.LogInformation("Login successful for user: {Username}", login.Username);
 
@@ -74,6 +76,7 @@ namespace StudentViolations.API.Controllers
                         username = username,
                         name = name,
                         role = role,
+                        student_no = studentNo,
                         token = token,
                         expiresIn = $"{_configuration["JwtSettings:ExpiryInHours"]} hours"
                     }
@@ -81,7 +84,6 @@ namespace StudentViolations.API.Controllers
             }
             catch (SqlException ex)
             {
-                // Separate SQL errors from general errors for clearer debugging
                 _logger.LogError(ex, "SQL error during login for user: {Username}", login.Username);
                 return StatusCode(500, new { status = 0, message = "A database error occurred." });
             }
@@ -92,31 +94,30 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // Builds a JWT token containing the user's ID, username, role, and name
-        private string GenerateToken(string userId, string username, string role, string name)
+        // Builds a JWT token containing the user's ID, username, role, name and StudentNo
+        private string GenerateToken(string userId, string username, string role, string name, string studentNo)
         {
-            // Read JWT settings from appsettings.json
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"];
             var issuer = jwtSettings["Issuer"];
             var audience = jwtSettings["Audience"];
             var expiryHours = int.Parse(jwtSettings["ExpiryInHours"]);
 
-            // Claims are the data stored inside the token
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, username),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.Name, username),
-                new Claim(ClaimTypes.Role, role), // Used by [Authorize(Roles = "...")] 
+                new Claim(ClaimTypes.Role, role),
                 new Claim("name", name),
+                // StudentNo stored in token so student can only access their own data
+                new Claim("studentNo", studentNo),
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            // Build the token with claims, expiry, and signing credentials
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
