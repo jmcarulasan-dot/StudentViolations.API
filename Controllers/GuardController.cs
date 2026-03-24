@@ -166,8 +166,8 @@ namespace StudentViolations.API.Controllers
         {
             try
             {
-                // Get the guard's ID from their JWT token claims
-                string? guardId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                // Read the guard's ID from the "nameid" claim in the JWT token
+                string? guardId = User.FindFirstValue("nameid");
                 if (string.IsNullOrEmpty(guardId))
                     return Unauthorized(new { status = 0, message = "Guard ID not found in token." });
 
