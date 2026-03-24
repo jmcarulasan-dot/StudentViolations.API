@@ -101,7 +101,6 @@ namespace StudentViolations.API.Class
         }
 
         // Saves a new violation record to the database
-        // Uses QueryAsync instead of ExecuteAsync so we can catch RAISERROR messages from the SP
         public async Task RecordViolation(dynamic violation)
         {
             SqlConnection connection = new SqlConnection(_connectionString);
@@ -192,7 +191,7 @@ namespace StudentViolations.API.Class
             }
         }
 
-        // Day 12 — Gets all violations recorded by a specific guard using their GuardId
+        // Gets all violations recorded by a specific guard using their GuardId
         public async Task<List<dynamic>> GetViolationsByGuardId(string guardId)
         {
             SqlConnection connection = new SqlConnection(_connectionString);

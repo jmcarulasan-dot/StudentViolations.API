@@ -119,7 +119,6 @@ namespace StudentViolations.API.Class
                     if (!string.IsNullOrEmpty(studentNo))
                         qrCodeBase64 = GenerateQrCode(studentNo);
 
-                    // Save StudentNo and QR code to Students table
                     string updateSql = @"UPDATE Students
                                          SET StudentNo = @StudentNo, QRCode = @QRCode
                                          WHERE StudentID = @Id";

@@ -19,16 +19,13 @@ namespace StudentViolationsAPI.Controllers
             _violationRepository = violationRepository;
         }
 
-        // Helper: Gets the StudentNo of the currently logged-in student from JWT token
         private string GetLoggedInStudentNo()
         {
-            // StudentNo is stored as "studentNo" claim in the JWT token during login
             return User.FindFirstValue("studentNo") ?? string.Empty;
         }
 
         // GET api/student/violations
         // Returns violations for the currently logged-in student ONLY
-        // Security fix (Day 2): StudentNo comes from JWT token — student cannot access other students' data
         [HttpGet("violations")]
         public async Task<IActionResult> GetMyViolations()
         {
@@ -44,7 +41,6 @@ namespace StudentViolationsAPI.Controllers
 
                 var violations = await _violationRepository.GetViolationsByStudentId(studentNo);
 
-                // Day 14 — Count violations by status
                 int pendingCount = violations.Count(v => ((string)v.Status).Equals("Pending", StringComparison.OrdinalIgnoreCase));
                 int approvedCount = violations.Count(v => ((string)v.Status).Equals("Approved", StringComparison.OrdinalIgnoreCase));
                 int rejectedCount = violations.Count(v => ((string)v.Status).Equals("Rejected", StringComparison.OrdinalIgnoreCase));
@@ -83,7 +79,6 @@ namespace StudentViolationsAPI.Controllers
 
         // GET api/student/profile
         // Returns the logged-in student's own profile only
-        // Security fix (Day 2): uses JWT token — student cannot view other students' profiles
         [HttpGet("profile")]
         public async Task<IActionResult> GetMyProfile()
         {
@@ -126,7 +121,6 @@ namespace StudentViolationsAPI.Controllers
 
         // GET api/student/qrcode
         // Returns the logged-in student's own QR code only
-        // Security fix (Day 2): uses JWT token — student cannot view other students' QR codes
         [HttpGet("qrcode")]
         public async Task<IActionResult> GetMyQrCode()
         {

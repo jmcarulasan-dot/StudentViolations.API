@@ -1,6 +1,6 @@
 ﻿namespace StudentViolations.API.Model
 {
-    // Represents a user record — used by RegisterClass and LoginClass when saving to the Users table
+    // Represents a user record 
     public class User
     {
         public int Id { get; set; }

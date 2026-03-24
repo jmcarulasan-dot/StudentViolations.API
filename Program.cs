@@ -101,7 +101,6 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Dependency Injection — connects each interface to its class implementation
-// AddScoped means one fresh instance is created per HTTP request
 builder.Services.AddScoped<ILoginRepository, LoginClass>();
 builder.Services.AddScoped<IRegisterRepository, RegisterClass>();
 builder.Services.AddScoped<IStudentRepository, StudentClass>();

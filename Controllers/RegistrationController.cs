@@ -33,7 +33,6 @@ namespace StudentViolations.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegistrationModel model)
         {
-            // Check model annotations first (Required, MinLength, EmailAddress, RegularExpression etc.)
             if (!ModelState.IsValid)
                 return BadRequest(new
                 {
@@ -47,7 +46,6 @@ namespace StudentViolations.API.Controllers
                         )
                 });
 
-            // Normalize inputs
             model.Username = model.Username.Trim();
             model.Email = model.Email.Trim().ToLower();
             model.FirstName = model.FirstName.Trim();
@@ -60,7 +58,6 @@ namespace StudentViolations.API.Controllers
             model.Course = model.Course?.Trim();
             model.Year = model.Year?.Trim();
 
-            // Validate DateOfBirth is a valid past date
             if (!DateTime.TryParse(model.DateOfBirth, out DateTime parsedDob))
                 return BadRequest(new { status = 0, message = "Invalid date of birth format. Use YYYY-MM-DD (e.g. 2000-01-12)." });
 
@@ -70,13 +67,11 @@ namespace StudentViolations.API.Controllers
             if (parsedDob < new DateTime(1900, 1, 1))
                 return BadRequest(new { status = 0, message = "Date of birth is not a valid date." });
 
-            // Calculate age — must be at least 15 years old
             int age = DateTime.Today.Year - parsedDob.Year;
             if (parsedDob > DateTime.Today.AddYears(-age)) age--;
             if (age < 15)
                 return BadRequest(new { status = 0, message = "User must be at least 15 years old." });
 
-            // If role is student — course, year and studentNo are all required
             if (model.Role == "student")
             {
                 if (string.IsNullOrWhiteSpace(model.Course))
@@ -98,7 +93,6 @@ namespace StudentViolations.API.Controllers
 
             try
             {
-                // Check if the username or email is already taken before proceeding
                 if (await _loginRepository.UserExists(model.Username, model.Email))
                     return BadRequest(new
                     {
@@ -107,11 +101,8 @@ namespace StudentViolations.API.Controllers
                         data = (object?)null
                     });
 
-                // Generate a unique salt and hash the password before saving
                 string salt = GenerateSalt();
                 string hashedPassword = HashPassword(model.Password, salt);
-
-                // Build the User object with all registration details
                 User newUser = new User
                 {
                     Username = model.Username,
@@ -125,7 +116,6 @@ namespace StudentViolations.API.Controllers
                     Address = model.Address,
                     Salt = salt,
                     RegistrationDate = DateTime.Now,
-                    // Capitalize the first letter of role to keep it consistent (e.g. "student" → "Student")
                     Role = char.ToUpper(model.Role[0]) + model.Role.Substring(1).ToLower(),
                     Course = model.Course,
                     Year = model.Year,
@@ -162,7 +152,7 @@ namespace StudentViolations.API.Controllers
             return Convert.ToBase64String(salt);
         }
 
-        // Hashes the password using PBKDF2 with the provided salt — same method used in LoginClass
+        // Hashes the password using PBKDF2 with the provided salt
         private string HashPassword(string password, string salt)
         {
             byte[] saltBytes = Convert.FromBase64String(salt);

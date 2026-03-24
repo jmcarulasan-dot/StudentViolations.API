@@ -22,15 +22,13 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/student/validate?studentNo=xxx
-        // Day 11 — Finds a student by QR code and returns warning level + full violation list with dates
+        // Finds a student by QR code and returns warning level 
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
         {
-            // Validate studentNo is not empty
             if (string.IsNullOrWhiteSpace(studentNo))
                 return BadRequest(new { status = 0, message = "Student number is required." });
 
-            // Normalize to uppercase for consistent matching
             studentNo = studentNo.Trim().ToUpper();
 
             try
@@ -52,7 +50,6 @@ namespace StudentViolations.API.Controllers
                     year = student.Year,
                     violation_count = violations.Count,
                     warning_level = GetWarningLevel(violations.Count),
-                    // Full violation list with date so guard can see history on scan
                     violations = violations.Select(v => new
                     {
                         date = v.ViolationDate,
@@ -75,11 +72,9 @@ namespace StudentViolations.API.Controllers
         [HttpPost("student/violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationModel request)
         {
-            // Validate request body is not null
             if (request == null)
                 return BadRequest(new { status = 0, message = "Request body is required." });
 
-            // Validate required fields are not empty
             if (string.IsNullOrWhiteSpace(request.StudentNo))
                 return BadRequest(new { status = 0, message = "Student number is required." });
 
@@ -92,7 +87,6 @@ namespace StudentViolations.API.Controllers
             if (string.IsNullOrWhiteSpace(request.GuardId))
                 return BadRequest(new { status = 0, message = "Guard ID is required." });
 
-            // Validate severity value
             if (string.IsNullOrWhiteSpace(request.Severity) ||
                 !ValidSeverities.Contains(request.Severity.Trim().ToLower()))
                 return BadRequest(new
@@ -101,7 +95,6 @@ namespace StudentViolations.API.Controllers
                     message = $"Invalid severity '{request.Severity}'. Accepted values are: minor, moderate, major, critical."
                 });
 
-            // Normalize inputs
             request.StudentNo = request.StudentNo.Trim().ToUpper();
             request.Severity = request.Severity.Trim().ToLower();
             request.ViolationType = request.ViolationType.Trim();
@@ -150,18 +143,15 @@ namespace StudentViolations.API.Controllers
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetViolationSummary([FromQuery] GetSummaryModel request)
         {
-            // Validate dates are provided
             if (request.StartDate == default)
                 return BadRequest(new { status = 0, message = "Start date is required." });
 
             if (request.EndDate == default)
                 return BadRequest(new { status = 0, message = "End date is required." });
 
-            // Validate StartDate is not after EndDate
             if (request.StartDate > request.EndDate)
                 return BadRequest(new { status = 0, message = "Start date cannot be after end date." });
 
-            // Validate date range is not more than 1 year
             if ((request.EndDate - request.StartDate).TotalDays > 365)
                 return BadRequest(new { status = 0, message = "Date range cannot exceed 1 year." });
 
@@ -181,7 +171,6 @@ namespace StudentViolations.API.Controllers
                         endDate = request.EndDate
                     });
 
-                // Find the most frequently occurring violation type
                 string topViolation = violations
                     .GroupBy(v => (string)v.ViolationName)
                     .OrderByDescending(g => g.Count())
@@ -203,7 +192,7 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/violations/my-records
-        // Day 12 — Returns all violations that the currently logged in guard personally recorded
+        // Returns all violations that the currently logged in guard personally recorded
         [HttpGet("violations/my-records")]
         public async Task<IActionResult> GetMyViolations()
         {
@@ -289,11 +278,9 @@ namespace StudentViolations.API.Controllers
         [HttpGet("students/exist")]
         public async Task<IActionResult> GetStudentByStudentNo([FromQuery] string studentNo)
         {
-            // Validate studentNo is not empty
             if (string.IsNullOrWhiteSpace(studentNo))
                 return BadRequest(new { status = 0, message = "Student number is required." });
 
-            // Normalize to uppercase for consistent matching
             studentNo = studentNo.Trim().ToUpper();
 
             try

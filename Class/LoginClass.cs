@@ -51,7 +51,6 @@ namespace StudentViolations.API.Class
                             role = result.Role,
                             email = result.Email,
                             contactNumber = result.ContactNumber,
-                            // Added StudentNo for JWT token — used for student security
                             studentNo = result.StudentNo ?? ""
                         };
                     }
