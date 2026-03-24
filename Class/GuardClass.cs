@@ -26,7 +26,7 @@ namespace StudentViolations.API.Class
                 DynamicParameters param = new DynamicParameters();
                 param.Add("statementType", "GETBYDATE");
                 param.Add("StartDate", startDate);
-                param.Add("EndDate", endDate); // Fix: EndDate was missing before
+                param.Add("EndDate", endDate); 
 
                 // Call SP_GUARD and return the list of violations found
                 var result = await connection.QueryAsync(

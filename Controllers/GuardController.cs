@@ -21,7 +21,7 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/student/validate?studentNo=xxx
-        // Finds a student by scanning their QR code (StudentNo) and returns their warning level
+        // Finds a student by scanning their QR code (StudentNo) and returns their warning level + violation list
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
         {
@@ -31,7 +31,7 @@ namespace StudentViolations.API.Controllers
                 if (student == null)
                     return NotFound(new { status = 0, message = "Student not found." });
 
-                // Get violations to calculate the current warning level
+                // Get violations to calculate the current warning level and return the list
                 List<dynamic> violations = await _guardRepository
                     .GetViolationsByStudentId((string)student.StudentNo);
 
@@ -40,8 +40,20 @@ namespace StudentViolations.API.Controllers
                     status = 1,
                     student_no = student.StudentNo,
                     name = $"{student.FirstName} {student.LastName}",
+                    course = student.Course,
+                    year = student.Year,
                     violation_count = violations.Count,
-                    warning_level = GetWarningLevel(violations.Count)
+                    warning_level = GetWarningLevel(violations.Count),
+                    // Day 11 — include the full violation list with date so guard can see history on scan
+                    violations = violations.Select(v => new
+                    {
+                        date = v.ViolationDate,
+                        type = v.ViolationName,
+                        details = v.Description,
+                        severity = v.Severity,
+                        status = v.Status,
+                        recorded_by = v.GuardName
+                    })
                 });
             }
             catch (Exception ex)
@@ -214,7 +226,7 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // GET api/guard/students/{studentNo}
+        // GET api/guard/students/exist?studentNo=xxx
         // Returns a specific student by their StudentNo
         [HttpGet("students/exist")]
         public async Task<IActionResult> GetStudentByStudentNo(string studentNo)
