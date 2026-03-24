@@ -26,9 +26,8 @@ namespace StudentViolations.API.Class
                 DynamicParameters param = new DynamicParameters();
                 param.Add("statementType", "GETBYDATE");
                 param.Add("StartDate", startDate);
-                param.Add("EndDate", endDate); 
+                param.Add("EndDate", endDate);
 
-                // Call SP_GUARD and return the list of violations found
                 var result = await connection.QueryAsync(
                     "SP_GUARD", param,
                     commandType: CommandType.StoredProcedure);
@@ -57,7 +56,6 @@ namespace StudentViolations.API.Class
                 param.Add("statementType", "GETBYSTUDENT");
                 param.Add("StudentNo", studentNo);
 
-                // Call SP_GUARD and return all violations belonging to this student
                 var result = await connection.QueryAsync(
                     "SP_GUARD", param,
                     commandType: CommandType.StoredProcedure);
@@ -86,7 +84,6 @@ namespace StudentViolations.API.Class
                 param.Add("statementType", "GETSTUDENTBYQR");
                 param.Add("StudentNo", qrCode);
 
-                // Returns one student record or null if not found
                 var result = await connection.QueryFirstOrDefaultAsync(
                     "SP_GUARD", param,
                     commandType: CommandType.StoredProcedure);
@@ -120,12 +117,10 @@ namespace StudentViolations.API.Class
                 param.Add("Severity", violation.Severity);
                 param.Add("GuardId", violation.GuardId);
 
-                // Use QueryAsync so we can read the ErrorMessage returned by RAISERROR
                 var result = await connection.QueryAsync(
                     "SP_GUARD", param,
                     commandType: CommandType.StoredProcedure);
 
-                // If the SP returned a row it means RAISERROR was triggered — throw the error message
                 var errorRow = result.FirstOrDefault();
                 if (errorRow != null && errorRow.ErrorMessage != null)
                 {
@@ -190,6 +185,34 @@ namespace StudentViolations.API.Class
             catch (Exception ex)
             {
                 throw new Exception($"GetStudentByStudentNo error: {ex.Message}");
+            }
+            finally
+            {
+                connection.Close();
+            }
+        }
+
+        // Day 12 — Gets all violations recorded by a specific guard using their GuardId
+        public async Task<List<dynamic>> GetViolationsByGuardId(string guardId)
+        {
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+
+                DynamicParameters param = new DynamicParameters();
+                param.Add("statementType", "GETBYGUARD");
+                param.Add("GuardId", guardId);
+
+                var result = await connection.QueryAsync(
+                    "SP_GUARD", param,
+                    commandType: CommandType.StoredProcedure);
+
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"GetViolationsByGuardId error: {ex.Message}");
             }
             finally
             {

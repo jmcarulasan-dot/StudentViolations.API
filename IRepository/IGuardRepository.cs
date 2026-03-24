@@ -20,5 +20,8 @@
 
         // Gets a specific student by their StudentNo
         Task<dynamic?> GetStudentByStudentNo(string studentNo);
+
+        // Day 12 — Gets all violations recorded by a specific guard using their GuardId
+        Task<List<dynamic>> GetViolationsByGuardId(string guardId);
     }
 }

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
+using System.Security.Claims;
 
 namespace StudentViolations.API.Controllers
 {
@@ -21,7 +22,7 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/student/validate?studentNo=xxx
-        // Finds a student by scanning their QR code (StudentNo) and returns their warning level + violation list
+        // Day 11 — Finds a student by QR code and returns warning level + full violation list with dates
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
         {
@@ -31,7 +32,7 @@ namespace StudentViolations.API.Controllers
                 if (student == null)
                     return NotFound(new { status = 0, message = "Student not found." });
 
-                // Get violations to calculate the current warning level and return the list
+                // Get violations to calculate warning level and return full list
                 List<dynamic> violations = await _guardRepository
                     .GetViolationsByStudentId((string)student.StudentNo);
 
@@ -44,7 +45,7 @@ namespace StudentViolations.API.Controllers
                     year = student.Year,
                     violation_count = violations.Count,
                     warning_level = GetWarningLevel(violations.Count),
-                    // Day 11 — include the full violation list with date so guard can see history on scan
+                    // Full violation list with date so guard can see history on scan
                     violations = violations.Select(v => new
                     {
                         date = v.ViolationDate,
@@ -116,38 +117,6 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // GET api/guard/violations/student?studentNo=xxx
-        // Returns all violations for a specific student using their StudentNo
-        [HttpGet("violations/student-list's")]
-        public async Task<IActionResult> GetViolationHistory([FromQuery] string studentNo)
-        {
-            try
-            {
-                List<dynamic> violations = await _guardRepository.GetViolationsByStudentId(studentNo);
-                if (violations == null || violations.Count == 0)
-                    return NotFound(new { status = 0, message = "No violations found for this student." });
-
-                return Ok(new
-                {
-                    status = 1,
-                    student_no = studentNo,
-                    violations = violations.Select(v => new
-                    {
-                        date = v.ViolationDate,
-                        type = v.ViolationName,
-                        details = v.Description,
-                        severity = v.Severity,
-                        status = v.Status,
-                        recorded_by = v.GuardName
-                    })
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
-        }
-
         // GET api/guard/violations/summary?StartDate=xxx&EndDate=xxx
         // Returns a summary of violations within a date range including the most common violation type
         [HttpGet("violations/summary")]
@@ -182,6 +151,47 @@ namespace StudentViolations.API.Controllers
                     topViolation,
                     startDate = request.StartDate,
                     endDate = request.EndDate
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { status = 0, message = ex.Message });
+            }
+        }
+
+        // GET api/guard/violations/my-records
+        // Day 12 — Returns all violations that the currently logged in guard personally recorded
+        [HttpGet("violations/my-records")]
+        public async Task<IActionResult> GetMyViolations()
+        {
+            try
+            {
+                // Get the guard's ID from their JWT token claims
+                string? guardId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(guardId))
+                    return Unauthorized(new { status = 0, message = "Guard ID not found in token." });
+
+                List<dynamic> violations = await _guardRepository.GetViolationsByGuardId(guardId);
+
+                if (violations == null || violations.Count == 0)
+                    return NotFound(new { status = 0, message = "No violations recorded by this guard." });
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Success",
+                    total = violations.Count,
+                    data = violations.Select(v => new
+                    {
+                        id = v.ViolationID,
+                        student_no = v.StudentNo,
+                        student_name = v.StudentName,
+                        type = v.ViolationName,
+                        details = v.Description,
+                        severity = v.Severity,
+                        date = v.ViolationDate,
+                        status = v.Status
+                    })
                 });
             }
             catch (Exception ex)
