@@ -34,11 +34,17 @@ namespace StudentViolations.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> LoginStudent([FromBody] LoginModel login)
         {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid login attempt for user: {Username}", login.Username);
-                return BadRequest(ModelState);
-            }
+            if (login == null)
+                return BadRequest(new { status = 0, message = "Request body is required." });
+
+            if (string.IsNullOrWhiteSpace(login.Username))
+                return BadRequest(new { status = 0, message = "Username is required." });
+
+            if (string.IsNullOrWhiteSpace(login.Password))
+                return BadRequest(new { status = 0, message = "Password is required." });
+
+            login.Username = login.Username.Trim().ToLower();
+            login.Password = login.Password.Trim();
 
             try
             {
@@ -46,20 +52,17 @@ namespace StudentViolations.API.Controllers
 
                 var response = await _loginRepository.GetLogin(login.Username, login.Password);
 
-                // If login failed, return 401 Unauthorized
                 if (response == null || response.Status == 0)
                 {
                     _logger.LogWarning("Invalid credentials for user: {Username}", login.Username);
                     return Unauthorized(new { status = 0, message = "Invalid username or password." });
                 }
 
-                // Extract user data from the response to build the token
                 dynamic userData = response.Data;
                 string username = userData.username;
                 string role = userData.role;
                 string userId = userData.id?.ToString() ?? "";
                 string name = userData.name ?? "";
-                // Get StudentNo from login response — used for student security
                 string studentNo = userData.studentNo ?? "";
 
                 var token = GenerateToken(userId, username, role, name, studentNo);
@@ -111,7 +114,6 @@ namespace StudentViolations.API.Controllers
                 new Claim(ClaimTypes.Name, username),
                 new Claim(ClaimTypes.Role, role),
                 new Claim("name", name),
-                // StudentNo stored in token so student can only access their own data
                 new Claim("studentNo", studentNo),
             };
 

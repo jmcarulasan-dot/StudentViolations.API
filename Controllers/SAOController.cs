@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.Model;
 using StudentViolationsAPI.IRepository;
+using System.Text.RegularExpressions;
 
 namespace StudentViolations.API.Controllers
 {
@@ -14,6 +15,8 @@ namespace StudentViolations.API.Controllers
         private readonly IViolationRepository _violationRepository;
         private readonly IStudentRepository _studentRepository;
         private readonly ISAORepository _saoRepository;
+
+        private static readonly string[] ValidGenders = { "male", "female" };
 
         public SAOController(
             IViolationRepository violationRepository,
@@ -35,14 +38,17 @@ namespace StudentViolations.API.Controllers
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
+                if (violations == null || violations.Count == 0)
+                    return NotFound(new { status = 0, message = "No violations found." });
+
                 return Ok(new
                 {
                     status = 1,
                     message = "Success",
+                    total = violations.Count,
                     data = violations.Select(v => new
                     {
                         id = v.ViolationID,
-                        // Match the violation's StudentId to the Students list to get their StudentNo
                         student_no = students
                             .FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
                         type = v.ViolationName,
@@ -65,11 +71,14 @@ namespace StudentViolations.API.Controllers
         [HttpGet("violations/{id}")]
         public async Task<IActionResult> GetViolationById(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { status = 0, message = "Violation ID must be a positive number." });
+
             try
             {
                 dynamic violation = await _violationRepository.GetViolationById(id);
                 if (violation == null)
-                    return NotFound(new { status = 0, message = "Violation not found." });
+                    return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
 
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
@@ -80,7 +89,6 @@ namespace StudentViolations.API.Controllers
                     data = new
                     {
                         id = violation.ViolationID,
-                        // Match the violation's StudentId to the Students list to get their StudentNo
                         student_no = students
                             .FirstOrDefault(s => s.StudentID == violation.StudentId)?.StudentNo,
                         type = violation.ViolationName,
@@ -103,23 +111,23 @@ namespace StudentViolations.API.Controllers
         [HttpGet("violations/by-status/{status}")]
         public async Task<IActionResult> GetViolationsByStatus(string status)
         {
-            // Validate status value before querying
+            if (string.IsNullOrWhiteSpace(status))
+                return BadRequest(new { status = 0, message = "Status is required." });
+
+            status = status.Trim().ToLower();
             var validStatuses = new[] { "pending", "approved", "rejected" };
-            if (!validStatuses.Contains(status.ToLower()))
-            {
+            if (!validStatuses.Contains(status))
                 return BadRequest(new
                 {
                     status = 0,
-                    message = $"Invalid status value '{status}'. Accepted values are: Pending, Approved, Rejected."
+                    message = $"Invalid status '{status}'. Accepted values are: Pending, Approved, Rejected."
                 });
-            }
 
             try
             {
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
-                // Filter by status (case-insensitive) and attach student number to each result
                 var filtered = violations
                     .Where(v => ((string)v.Status).Equals(status, StringComparison.OrdinalIgnoreCase))
                     .Select(v => new
@@ -133,9 +141,12 @@ namespace StudentViolations.API.Controllers
                         date = v.ViolationDate,
                         recorded_by = v.GuardName,
                         status = v.Status
-                    });
+                    }).ToList();
 
-                return Ok(new { status = 1, message = "Success", data = filtered });
+                if (filtered.Count == 0)
+                    return NotFound(new { status = 0, message = $"No {status} violations found." });
+
+                return Ok(new { status = 1, message = "Success", total = filtered.Count, data = filtered });
             }
             catch (Exception ex)
             {
@@ -148,12 +159,17 @@ namespace StudentViolations.API.Controllers
         [HttpPut("violations/{id}/approve")]
         public async Task<IActionResult> ApproveViolation(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { status = 0, message = "Violation ID must be a positive number." });
+
             try
             {
-                // Check if the violation exists before trying to update it
                 dynamic violation = await _violationRepository.GetViolationById(id);
                 if (violation == null)
-                    return NotFound(new { status = 0, message = "Violation not found." });
+                    return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
+
+                if (((string)violation.Status).Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { status = 0, message = "Violation is already approved." });
 
                 await _violationRepository.UpdateViolationStatus(id, "Approved");
                 return Ok(new { status = 1, message = "Violation approved successfully." });
@@ -169,12 +185,17 @@ namespace StudentViolations.API.Controllers
         [HttpPut("violations/{id}/reject")]
         public async Task<IActionResult> RejectViolation(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { status = 0, message = "Violation ID must be a positive number." });
+
             try
             {
-                // Check if the violation exists before trying to update it
                 dynamic violation = await _violationRepository.GetViolationById(id);
                 if (violation == null)
-                    return NotFound(new { status = 0, message = "Violation not found." });
+                    return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
+
+                if (((string)violation.Status).Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { status = 0, message = "Violation is already rejected." });
 
                 await _violationRepository.UpdateViolationStatus(id, "Rejected");
                 return Ok(new { status = 1, message = "Violation rejected successfully." });
@@ -190,12 +211,14 @@ namespace StudentViolations.API.Controllers
         [HttpDelete("violations/{id}")]
         public async Task<IActionResult> DeleteViolation(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { status = 0, message = "Violation ID must be a positive number." });
+
             try
             {
-                // Check if the violation exists before trying to delete it
                 dynamic violation = await _violationRepository.GetViolationById(id);
                 if (violation == null)
-                    return NotFound(new { status = 0, message = "Violation not found." });
+                    return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
 
                 await _violationRepository.DeleteViolation(id);
                 return Ok(new { status = 1, message = "Violation deleted successfully." });
@@ -215,6 +238,9 @@ namespace StudentViolations.API.Controllers
             {
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
 
+                if (violations == null || violations.Count == 0)
+                    return NotFound(new { status = 0, message = "No violations found." });
+
                 return Ok(new
                 {
                     status = 1,
@@ -225,11 +251,9 @@ namespace StudentViolations.API.Controllers
                         pending = violations.Count(v => v.Status == "Pending"),
                         approved = violations.Count(v => v.Status == "Approved"),
                         rejected = violations.Count(v => v.Status == "Rejected"),
-                        // Group by severity to show how many minor/moderate/major/critical violations exist
                         by_severity = violations
                             .GroupBy(v => (string)v.Severity)
                             .Select(g => new { severity = g.Key, count = g.Count() }),
-                        // Group by type to show the most common violations
                         by_type = violations
                             .GroupBy(v => (string)v.ViolationName)
                             .Select(g => new { type = g.Key, count = g.Count() })
@@ -247,11 +271,16 @@ namespace StudentViolations.API.Controllers
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
         {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 0, message = "Student number is required." });
+
+            studentNo = studentNo.Trim().ToUpper();
+
             try
             {
                 dynamic student = await _studentRepository.GetStudentByStudentId(studentNo);
                 if (student == null)
-                    return NotFound(new { status = 0, message = "Student not found." });
+                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
 
                 List<dynamic> violations = await _violationRepository
                     .GetViolationsByStudentId((string)student.StudentNo);
@@ -301,10 +330,14 @@ namespace StudentViolations.API.Controllers
             {
                 List<dynamic> users = await _saoRepository.GetAllUsers();
 
+                if (users == null || users.Count == 0)
+                    return NotFound(new { status = 0, message = "No users found." });
+
                 return Ok(new
                 {
                     status = 1,
                     message = "Users retrieved successfully.",
+                    total = users.Count,
                     data = users.Select(u => new
                     {
                         id = u.StudentID,
@@ -331,25 +364,57 @@ namespace StudentViolations.API.Controllers
         [HttpPut("users/{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserModel request)
         {
+            if (id <= 0)
+                return BadRequest(new { status = 0, message = "User ID must be a positive number." });
+
+            if (request == null)
+                return BadRequest(new { status = 0, message = "Request body is required." });
+
+            if (request.FirstName != null)
+            {
+                if (request.FirstName.Trim().Length < 2)
+                    return BadRequest(new { status = 0, message = "First name must be at least 2 characters." });
+                if (!Regex.IsMatch(request.FirstName.Trim(), @"^[a-zA-Z\s\-]+$"))
+                    return BadRequest(new { status = 0, message = "First name must contain letters only." });
+            }
+            if (request.LastName != null)
+            {
+                if (request.LastName.Trim().Length < 2)
+                    return BadRequest(new { status = 0, message = "Last name must be at least 2 characters." });
+                if (!Regex.IsMatch(request.LastName.Trim(), @"^[a-zA-Z\s\-]+$"))
+                    return BadRequest(new { status = 0, message = "Last name must contain letters only." });
+            }
+
+            if (request.Email != null &&
+                !Regex.IsMatch(request.Email.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                return BadRequest(new { status = 0, message = "Invalid email format." });
+
+            if (request.ContactNumber != null &&
+                !Regex.IsMatch(request.ContactNumber.Trim(), @"^09\d{9}$"))
+                return BadRequest(new { status = 0, message = "Contact number must be 11 digits and start with 09 (e.g. 09123456789)." });
+
+            if (request.Gender != null &&
+                !ValidGenders.Contains(request.Gender.Trim().ToLower()))
+                return BadRequest(new { status = 0, message = "Gender must be either 'male' or 'female'." });
+
             try
             {
                 // Get the current user data so we can fall back to existing values if a field is null
                 dynamic user = await _saoRepository.GetUserById(id);
                 if (user == null)
-                    return NotFound(new { status = 0, message = "User not found." });
+                    return NotFound(new { status = 0, message = $"User with ID {id} not found." });
 
                 var updated = new
                 {
                     Id = (int)user.StudentID,
-                    FirstName = request.FirstName ?? (string)user.FirstName,
-                    LastName = request.LastName ?? (string)user.LastName,
-                    Email = request.Email ?? (string)user.Email,
-                    ContactNumber = request.ContactNumber ?? (string)user.ContactNumber,
-                    Gender = request.Gender ?? (string)user.Gender,
-                    Address = request.Address ?? (string)user.Address,
-                    Course = request.Course ?? (string)user.Course,
-                    Year = request.Year ?? (string)user.Year,
-                    // Role is never changed — always keep the existing role
+                    FirstName = request.FirstName?.Trim() ?? (string)user.FirstName,
+                    LastName = request.LastName?.Trim() ?? (string)user.LastName,
+                    Email = request.Email?.Trim().ToLower() ?? (string)user.Email,
+                    ContactNumber = request.ContactNumber?.Trim() ?? (string)user.ContactNumber,
+                    Gender = request.Gender?.Trim().ToLower() ?? (string)user.Gender,
+                    Address = request.Address?.Trim() ?? (string)user.Address,
+                    Course = request.Course?.Trim() ?? (string)user.Course,
+                    Year = request.Year?.Trim() ?? (string)user.Year,
                     Role = (string)user.Role
                 };
 
@@ -379,12 +444,14 @@ namespace StudentViolations.API.Controllers
         [HttpDelete("users/{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { status = 0, message = "User ID must be a positive number." });
+
             try
             {
-                // Check if the user exists before trying to delete
                 dynamic user = await _saoRepository.GetUserById(id);
                 if (user == null)
-                    return NotFound(new { status = 0, message = "User not found." });
+                    return NotFound(new { status = 0, message = $"User with ID {id} not found." });
 
                 await _saoRepository.DeleteUser(id);
 
