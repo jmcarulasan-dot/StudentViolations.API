@@ -15,6 +15,9 @@ namespace StudentViolations.API.Controllers
         private readonly IRegisterRepository _registerRepository;
         private readonly ILogger<RegistrationController> _logger;
 
+        // Valid roles accepted by the system
+        private static readonly string[] ValidRoles = { "guard", "student", "guidance", "sao" };
+
         public RegistrationController(
             ILogger<RegistrationController> logger,
             ILoginRepository loginRepository,
@@ -30,21 +33,79 @@ namespace StudentViolations.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegistrationModel model)
         {
+            // Check model annotations first (Required, MinLength, EmailAddress, RegularExpression etc.)
             if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+                return BadRequest(new
+                {
+                    status = 0,
+                    message = "Validation failed.",
+                    errors = ModelState
+                        .Where(e => e.Value.Errors.Count > 0)
+                        .ToDictionary(
+                            e => e.Key,
+                            e => e.Value.Errors.Select(x => x.ErrorMessage).ToList()
+                        )
+                });
+
+            // Normalize inputs
+            model.Username = model.Username.Trim();
+            model.Email = model.Email.Trim().ToLower();
+            model.FirstName = model.FirstName.Trim();
+            model.LastName = model.LastName.Trim();
+            model.Gender = model.Gender.Trim().ToLower();
+            model.Address = model.Address.Trim();
+            model.Number = model.Number.Trim();
+            model.Role = model.Role.Trim().ToLower();
+            model.StudentNo = model.StudentNo?.Trim().ToUpper();
+            model.Course = model.Course?.Trim();
+            model.Year = model.Year?.Trim();
+
+            // Validate DateOfBirth is a valid past date
+            if (!DateTime.TryParse(model.DateOfBirth, out DateTime parsedDob))
+                return BadRequest(new { status = 0, message = "Invalid date of birth format. Use YYYY-MM-DD (e.g. 2000-01-12)." });
+
+            if (parsedDob >= DateTime.Today)
+                return BadRequest(new { status = 0, message = "Date of birth must be in the past." });
+
+            if (parsedDob < new DateTime(1900, 1, 1))
+                return BadRequest(new { status = 0, message = "Date of birth is not a valid date." });
+
+            // Calculate age — must be at least 15 years old
+            int age = DateTime.Today.Year - parsedDob.Year;
+            if (parsedDob > DateTime.Today.AddYears(-age)) age--;
+            if (age < 15)
+                return BadRequest(new { status = 0, message = "User must be at least 15 years old." });
+
+            // If role is student — course, year and studentNo are all required
+            if (model.Role == "student")
+            {
+                if (string.IsNullOrWhiteSpace(model.Course))
+                    return BadRequest(new { status = 0, message = "Course is required for student role." });
+
+                if (string.IsNullOrWhiteSpace(model.Year))
+                    return BadRequest(new { status = 0, message = "Year is required for student role." });
+
+                if (string.IsNullOrWhiteSpace(model.StudentNo))
+                    return BadRequest(new { status = 0, message = "Student number is required for student role." });
+            }
+
+            // If role is NOT student — studentNo, course, year should not be provided
+            if (model.Role != "student")
+            {
+                if (!string.IsNullOrWhiteSpace(model.StudentNo))
+                    return BadRequest(new { status = 0, message = "Student number should only be provided for student role." });
+            }
 
             try
             {
                 // Check if the username or email is already taken before proceeding
                 if (await _loginRepository.UserExists(model.Username, model.Email))
-                {
                     return BadRequest(new
                     {
                         status = 0,
-                        message = "User already exists with this username or email.",
+                        message = "Username or email is already registered.",
                         data = (object?)null
                     });
-                }
 
                 // Generate a unique salt and hash the password before saving
                 string salt = GenerateSalt();
@@ -60,9 +121,7 @@ namespace StudentViolations.API.Controllers
                     ContactNumber = model.Number,
                     FirstName = model.FirstName,
                     LastName = model.LastName,
-                    DateOfBirth = !string.IsNullOrEmpty(model.DateOfBirth)
-                        ? DateTime.Parse(model.DateOfBirth)
-                        : (DateTime?)null,
+                    DateOfBirth = parsedDob,
                     Address = model.Address,
                     Salt = salt,
                     RegistrationDate = DateTime.Now,
@@ -74,6 +133,9 @@ namespace StudentViolations.API.Controllers
                 };
 
                 ServiceResponse<object> result = await _registerRepository.RegisterUser(newUser);
+
+                if (result.Status == 0)
+                    return BadRequest(new { status = 0, message = result.Message, data = (object?)null });
 
                 return Ok(new
                 {
