@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using StudentViolations.API.Helpers;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using System.Security.Claims;
@@ -22,7 +23,7 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/student/validate?studentNo=xxx
-        // Finds a student by QR code and returns warning level 
+        // Finds a student by QR code and returns warning level + full violation list with dates
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
         {
@@ -37,7 +38,6 @@ namespace StudentViolations.API.Controllers
                 if (student == null)
                     return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
 
-                // Get violations to calculate warning level and return full list
                 List<dynamic> violations = await _guardRepository
                     .GetViolationsByStudentId((string)student.StudentNo);
 
@@ -49,7 +49,7 @@ namespace StudentViolations.API.Controllers
                     course = student.Course,
                     year = student.Year,
                     violation_count = violations.Count,
-                    warning_level = GetWarningLevel(violations.Count),
+                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                     violations = violations.Select(v => new
                     {
                         date = v.ViolationDate,
@@ -102,7 +102,6 @@ namespace StudentViolations.API.Controllers
 
             try
             {
-                // Find the student first to get their internal StudentID
                 dynamic student = await _guardRepository.GetStudentByQrCode(request.StudentNo);
                 if (student == null)
                     return NotFound(new { status = 0, message = $"Student '{request.StudentNo}' not found." });
@@ -118,7 +117,6 @@ namespace StudentViolations.API.Controllers
 
                 await _guardRepository.RecordViolation(violation);
 
-                // Get updated violations after recording to return the new warning level
                 List<dynamic> violations = await _guardRepository
                     .GetViolationsByStudentId((string)student.StudentNo);
 
@@ -129,7 +127,7 @@ namespace StudentViolations.API.Controllers
                     student_no = student.StudentNo,
                     name = $"{student.FirstName} {student.LastName}",
                     new_violation_count = violations.Count,
-                    new_warning_level = GetWarningLevel(violations.Count)
+                    new_warning_level = ViolationHelper.GetWarningLevel(violations.Count)
                 });
             }
             catch (Exception ex)
@@ -198,7 +196,6 @@ namespace StudentViolations.API.Controllers
         {
             try
             {
-                // Read the guard's ID from the "nameid" claim in the JWT token
                 string? guardId = User.FindFirstValue("nameid");
                 if (string.IsNullOrEmpty(guardId))
                     return Unauthorized(new { status = 0, message = "Guard ID not found in token." });
@@ -230,15 +227,6 @@ namespace StudentViolations.API.Controllers
             {
                 return StatusCode(500, new { status = 0, message = ex.Message });
             }
-        }
-
-        // Returns a color-coded warning level based on the number of violations
-        private string GetWarningLevel(int violationCount)
-        {
-            if (violationCount >= 3) return "red";
-            else if (violationCount == 2) return "orange";
-            else if (violationCount == 1) return "yellow";
-            else return "green";
         }
 
         // GET api/guard/students

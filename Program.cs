@@ -3,7 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using StudentViolations.API.Class;
 using StudentViolations.API.IRepository;
-using StudentViolationsAPI.IRepository;
+
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -117,9 +117,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");      
-app.UseHttpsRedirection();      
-app.UseAuthentication();        
-app.UseAuthorization();         
-app.MapControllers();              
+app.UseCors("AllowAll");
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
 app.Run();

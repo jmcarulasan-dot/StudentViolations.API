@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using StudentViolationsAPI.IRepository;
+using StudentViolations.API.Helpers;
+using StudentViolations.API.IRepository;
 
 namespace StudentViolations.API.Controllers
 {
@@ -28,15 +29,10 @@ namespace StudentViolations.API.Controllers
             try
             {
                 List<dynamic> students = await _studentRepository.GetAllStudents();
-
-                if (students == null || students.Count == 0)
-                    return NotFound(new { status = 0, message = "No students found." });
-
                 List<object> result = new List<object>();
 
                 foreach (dynamic student in students)
                 {
-                    // Get each student's violations to calculate their warning level
                     List<dynamic> violations = await _violationRepository
                         .GetViolationsByStudentId((string)student.StudentNo);
 
@@ -48,11 +44,11 @@ namespace StudentViolations.API.Controllers
                         contact_number = student.ContactNumber,
                         gender = student.Gender,
                         violation_count = violations.Count,
-                        warning_level = GetWarningLevel(violations.Count)
+                        warning_level = ViolationHelper.GetWarningLevel(violations.Count)
                     });
                 }
 
-                return Ok(new { status = 1, message = "Success", total = result.Count, data = result });
+                return Ok(new { status = 1, message = "Success", data = result });
             }
             catch (Exception ex)
             {
@@ -65,20 +61,12 @@ namespace StudentViolations.API.Controllers
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
         {
-            // Validate studentNo is not empty
-            if (string.IsNullOrWhiteSpace(studentNo))
-                return BadRequest(new { status = 0, message = "Student number is required." });
-
-            // Normalize to uppercase for consistent matching
-            studentNo = studentNo.Trim().ToUpper();
-
             try
             {
                 dynamic student = await _studentRepository.GetStudentByStudentId(studentNo);
                 if (student == null)
-                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
+                    return NotFound(new { status = 0, message = "Student not found." });
 
-                // Fetch all violations for this student
                 List<dynamic> violations = await _violationRepository
                     .GetViolationsByStudentId((string)student.StudentNo);
 
@@ -96,7 +84,7 @@ namespace StudentViolations.API.Controllers
                         address = student.Address,
                         date_of_birth = student.DateOfBirth,
                         violation_count = violations.Count,
-                        warning_level = GetWarningLevel(violations.Count),
+                        warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                         violations = violations.Select(v => new
                         {
                             id = v.ViolationID,
@@ -126,7 +114,6 @@ namespace StudentViolations.API.Controllers
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
-                // Filter only Pending violations and match each one to a student number
                 var pending = violations
                     .Where(v => ((string)v.Status).Equals("Pending", StringComparison.OrdinalIgnoreCase))
                     .Select(v => new
@@ -140,12 +127,9 @@ namespace StudentViolations.API.Controllers
                         date = v.ViolationDate,
                         status = v.Status,
                         recorded_by = v.GuardName
-                    }).ToList();
+                    });
 
-                if (pending.Count == 0)
-                    return NotFound(new { status = 0, message = "No pending violations found." });
-
-                return Ok(new { status = 1, message = "Success", total = pending.Count, data = pending });
+                return Ok(new { status = 1, message = "Success", data = pending });
             }
             catch (Exception ex)
             {
@@ -154,20 +138,15 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guidance/violations/by-severity
-        // Returns all violations grouped by severity level (minor, moderate, major, critical)
+        // Returns all violations grouped by severity level
         [HttpGet("violations/by-severity")]
         public async Task<IActionResult> GetViolationsBySeverity()
         {
             try
             {
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
-
-                if (violations == null || violations.Count == 0)
-                    return NotFound(new { status = 0, message = "No violations found." });
-
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
-                // Group violations by severity and attach the student number to each one
                 var grouped = violations
                     .GroupBy(v => (string)v.Severity)
                     .Select(g => new
@@ -193,15 +172,6 @@ namespace StudentViolations.API.Controllers
             {
                 return StatusCode(500, new { status = 0, message = ex.Message });
             }
-        }
-
-        // Returns a color-coded warning level based on the number of violations
-        private string GetWarningLevel(int violationCount)
-        {
-            if (violationCount >= 3) return "red";
-            else if (violationCount == 2) return "orange";
-            else if (violationCount == 1) return "yellow";
-            else return "green";
         }
     }
 }

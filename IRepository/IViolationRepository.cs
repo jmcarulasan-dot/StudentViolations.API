@@ -1,4 +1,4 @@
-﻿namespace StudentViolationsAPI.IRepository
+﻿namespace StudentViolations.API.IRepository
 {
     // Defines all violation-related operations the ViolationClass must implement
     public interface IViolationRepository

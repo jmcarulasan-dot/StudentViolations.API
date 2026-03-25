@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
-using StudentViolationsAPI.IRepository;
+using StudentViolations.API.IRepository;
 using System.Data;
 
 namespace StudentViolations.API.Class

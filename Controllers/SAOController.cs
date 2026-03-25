@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using StudentViolations.API.Helpers;
+using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
-using StudentViolationsAPI.IRepository;
 using System.Text.RegularExpressions;
 
 namespace StudentViolations.API.Controllers
@@ -301,7 +302,7 @@ namespace StudentViolations.API.Controllers
                         course = student.Course,
                         year = student.Year,
                         violation_count = violations.Count,
-                        warning_level = GetWarningLevel(violations.Count),
+                        warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                         violations = violations.Select(v => new
                         {
                             id = v.ViolationID,
@@ -465,15 +466,6 @@ namespace StudentViolations.API.Controllers
             {
                 return StatusCode(500, new { status = 0, message = ex.Message });
             }
-        }
-
-        // Returns a color-coded warning level based on the number of violations
-        private string GetWarningLevel(int violationCount)
-        {
-            if (violationCount >= 3) return "red";
-            else if (violationCount == 2) return "orange";
-            else if (violationCount == 1) return "yellow";
-            else return "green";
         }
     }
 }

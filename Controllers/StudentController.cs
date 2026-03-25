@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using StudentViolationsAPI.IRepository;
+using StudentViolations.API.Helpers;
+using StudentViolations.API.IRepository;
 using System.Security.Claims;
 
-namespace StudentViolationsAPI.Controllers
+namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/student")]
@@ -19,6 +20,7 @@ namespace StudentViolationsAPI.Controllers
             _violationRepository = violationRepository;
         }
 
+        // Gets the StudentNo of the currently logged-in student from the JWT token
         private string GetLoggedInStudentNo()
         {
             return User.FindFirstValue("studentNo") ?? string.Empty;
@@ -26,6 +28,7 @@ namespace StudentViolationsAPI.Controllers
 
         // GET api/student/violations
         // Returns violations for the currently logged-in student ONLY
+        // Security: StudentNo comes from JWT token — student cannot access other students' data
         [HttpGet("violations")]
         public async Task<IActionResult> GetMyViolations()
         {
@@ -57,7 +60,7 @@ namespace StudentViolationsAPI.Controllers
                         pending = pendingCount,
                         approved = approvedCount,
                         rejected = rejectedCount,
-                        warning_level = GetWarningLevel(violations.Count),
+                        warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                         violations = violations.Select(v => new
                         {
                             id = v.ViolationID,
@@ -79,6 +82,7 @@ namespace StudentViolationsAPI.Controllers
 
         // GET api/student/profile
         // Returns the logged-in student's own profile only
+        // Security: uses JWT token — student cannot view other students' profiles
         [HttpGet("profile")]
         public async Task<IActionResult> GetMyProfile()
         {
@@ -109,7 +113,7 @@ namespace StudentViolationsAPI.Controllers
                         contact_number = student.ContactNumber,
                         address = student.Address,
                         total_violations = violations.Count,
-                        warning_level = GetWarningLevel(violations.Count)
+                        warning_level = ViolationHelper.GetWarningLevel(violations.Count)
                     }
                 });
             }
@@ -121,6 +125,7 @@ namespace StudentViolationsAPI.Controllers
 
         // GET api/student/qrcode
         // Returns the logged-in student's own QR code only
+        // Security: uses JWT token — student cannot view other students' QR codes
         [HttpGet("qrcode")]
         public async Task<IActionResult> GetMyQrCode()
         {
@@ -153,15 +158,6 @@ namespace StudentViolationsAPI.Controllers
             {
                 return StatusCode(500, new { status = 0, message = ex.Message });
             }
-        }
-
-        // Returns a color-coded warning level based on the number of violations
-        private string GetWarningLevel(int violationCount)
-        {
-            if (violationCount >= 3) return "red";
-            else if (violationCount == 2) return "orange";
-            else if (violationCount == 1) return "yellow";
-            else return "green";
         }
     }
 }

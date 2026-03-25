@@ -7,10 +7,11 @@ using System.Data;
 
 namespace StudentViolations.API.Class
 {
-    // This class handles login and user registration operations.
+    // This class handles login and user existence check operations.
     public class LoginClass : ILoginRepository
     {
         private readonly string _connectionString;
+
         public LoginClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
@@ -29,6 +30,7 @@ namespace StudentViolations.API.Class
                 param.Add("username", username);
                 param.Add("email", "");
                 param.Add("statementType", "GETLOGIN");
+
                 var result = (await connection.QueryAsync(
                     "SP_STUDENT_GETUSERLOGIN",
                     param,
@@ -51,6 +53,7 @@ namespace StudentViolations.API.Class
                             role = result.Role,
                             email = result.Email,
                             contactNumber = result.ContactNumber,
+                            // StudentNo is included in the token for student security
                             studentNo = result.StudentNo ?? ""
                         };
                     }
@@ -105,50 +108,6 @@ namespace StudentViolations.API.Class
             {
                 connection.Close();
             }
-        }
-
-        // Registers a new user in the system.
-        public async Task<ServiceResponse<object>> RegisterUser(User user)
-        {
-            ServiceResponse<object> service = new ServiceResponse<object>();
-            SqlConnection connection = new SqlConnection(_connectionString);
-            try
-            {
-                await connection.OpenAsync();
-                string sql = @"INSERT INTO Users 
-                    (Username, PasswordHash, Salt, Email, Gender, ContactNumber, 
-                     RegistrationDate, Role, FirstName, LastName)
-                    VALUES 
-                    (@Username, @PasswordHash, @Salt, @Email, @Gender, @ContactNumber, 
-                     @RegistrationDate, @Role, @FirstName, @LastName)";
-                await connection.ExecuteAsync(sql, new
-                {
-                    user.Username,
-                    user.PasswordHash,
-                    user.Salt,
-                    user.Email,
-                    user.Gender,
-                    user.ContactNumber,
-                    RegistrationDate = DateTime.Now,
-                    user.Role,
-                    user.FirstName,
-                    user.LastName
-                });
-
-                service.Status = 1;
-                service.Message = "Registration successful.";
-                service.Data = new { username = user.Username, role = user.Role };
-            }
-            catch (Exception ex)
-            {
-                service.Status = 0;
-                service.Message = $"Registration error: {ex.Message}";
-            }
-            finally
-            {
-                connection.Close();
-            }
-            return service;
         }
 
         // Helper method to hash a password using PBKDF2.
