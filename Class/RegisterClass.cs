@@ -115,7 +115,6 @@ namespace StudentViolations.API.Class
 
                     studentNo = user.StudentNo;
 
-                    // Generate QR code from StudentNo
                     if (!string.IsNullOrEmpty(studentNo))
                         qrCodeBase64 = GenerateQrCode(studentNo);
 
