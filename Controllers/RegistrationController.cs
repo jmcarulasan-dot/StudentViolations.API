@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 
 namespace StudentViolations.API.Controllers
@@ -17,6 +18,7 @@ namespace StudentViolations.API.Controllers
 
         // Valid roles accepted by the system
         private static readonly string[] ValidRoles = { "guard", "student", "guidance", "sao" };
+        private static readonly string[] ValidGenders = { "male", "female" };
 
         public RegistrationController(
             ILogger<RegistrationController> logger,
@@ -33,18 +35,64 @@ namespace StudentViolations.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegistrationModel model)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(new
-                {
-                    status = 0,
-                    message = "Validation failed.",
-                    errors = ModelState
-                        .Where(e => e.Value.Errors.Count > 0)
-                        .ToDictionary(
-                            e => e.Key,
-                            e => e.Value.Errors.Select(x => x.ErrorMessage).ToList()
-                        )
-                });
+            if (model == null)
+                return BadRequest(new { status = 0, message = "Request body is required." });
+
+            if (string.IsNullOrWhiteSpace(model.Username))
+                return BadRequest(new { status = 0, message = "Username is required." });
+            if (model.Username.Trim().Length < 2)
+                return BadRequest(new { status = 0, message = "Username must be at least 2 characters." });
+
+            if (string.IsNullOrWhiteSpace(model.Password))
+                return BadRequest(new { status = 0, message = "Password is required." });
+            if (model.Password.Length < 8)
+                return BadRequest(new { status = 0, message = "Password must be at least 8 characters." });
+
+            if (string.IsNullOrWhiteSpace(model.Email))
+                return BadRequest(new { status = 0, message = "Email is required." });
+            if (!Regex.IsMatch(model.Email.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                return BadRequest(new { status = 0, message = "Invalid email format." });
+
+            if (string.IsNullOrWhiteSpace(model.FirstName))
+                return BadRequest(new { status = 0, message = "First name is required." });
+            if (!Regex.IsMatch(model.FirstName.Trim(), @"^[a-zA-Z\s\-]+$"))
+                return BadRequest(new { status = 0, message = "First name must contain letters only." });
+
+            if (string.IsNullOrWhiteSpace(model.LastName))
+                return BadRequest(new { status = 0, message = "Last name is required." });
+            if (!Regex.IsMatch(model.LastName.Trim(), @"^[a-zA-Z\s\-]+$"))
+                return BadRequest(new { status = 0, message = "Last name must contain letters only." });
+
+            if (string.IsNullOrWhiteSpace(model.DateOfBirth))
+                return BadRequest(new { status = 0, message = "Date of birth is required." });
+            if (!DateTime.TryParse(model.DateOfBirth, out DateTime parsedDob))
+                return BadRequest(new { status = 0, message = "Invalid date of birth format. Use YYYY-MM-DD (e.g. 2000-01-12)." });
+            if (parsedDob >= DateTime.Today)
+                return BadRequest(new { status = 0, message = "Date of birth must be in the past." });
+            if (parsedDob < new DateTime(1900, 1, 1))
+                return BadRequest(new { status = 0, message = "Date of birth is not a valid date." });
+            int age = DateTime.Today.Year - parsedDob.Year;
+            if (parsedDob > DateTime.Today.AddYears(-age)) age--;
+            if (age < 15)
+                return BadRequest(new { status = 0, message = "User must be at least 15 years old." });
+
+            if (string.IsNullOrWhiteSpace(model.Gender))
+                return BadRequest(new { status = 0, message = "Gender is required." });
+            if (!ValidGenders.Contains(model.Gender.Trim().ToLower()))
+                return BadRequest(new { status = 0, message = "Gender must be either 'male' or 'female'." });
+
+            if (string.IsNullOrWhiteSpace(model.Address))
+                return BadRequest(new { status = 0, message = "Address is required." });
+
+            if (string.IsNullOrWhiteSpace(model.Number))
+                return BadRequest(new { status = 0, message = "Contact number is required." });
+            if (!Regex.IsMatch(model.Number.Trim(), @"^\d{11}$"))
+                return BadRequest(new { status = 0, message = "Contact number must be exactly 11 digits." });
+
+            if (string.IsNullOrWhiteSpace(model.Role))
+                return BadRequest(new { status = 0, message = "Role is required." });
+            if (!ValidRoles.Contains(model.Role.Trim().ToLower()))
+                return BadRequest(new { status = 0, message = "Role must be one of: guard, student, guidance, sao." });
 
             model.Username = model.Username.Trim();
             model.Email = model.Email.Trim().ToLower();
@@ -58,41 +106,25 @@ namespace StudentViolations.API.Controllers
             model.Course = model.Course?.Trim();
             model.Year = model.Year?.Trim();
 
-            if (!DateTime.TryParse(model.DateOfBirth, out DateTime parsedDob))
-                return BadRequest(new { status = 0, message = "Invalid date of birth format. Use YYYY-MM-DD (e.g. 2000-01-12)." });
-
-            if (parsedDob >= DateTime.Today)
-                return BadRequest(new { status = 0, message = "Date of birth must be in the past." });
-
-            if (parsedDob < new DateTime(1900, 1, 1))
-                return BadRequest(new { status = 0, message = "Date of birth is not a valid date." });
-
-            int age = DateTime.Today.Year - parsedDob.Year;
-            if (parsedDob > DateTime.Today.AddYears(-age)) age--;
-            if (age < 15)
-                return BadRequest(new { status = 0, message = "User must be at least 15 years old." });
-
             if (model.Role == "student")
             {
                 if (string.IsNullOrWhiteSpace(model.Course))
                     return BadRequest(new { status = 0, message = "Course is required for student role." });
-
                 if (string.IsNullOrWhiteSpace(model.Year))
                     return BadRequest(new { status = 0, message = "Year is required for student role." });
-
                 if (string.IsNullOrWhiteSpace(model.StudentNo))
                     return BadRequest(new { status = 0, message = "Student number is required for student role." });
+
+                if (!Regex.IsMatch(model.StudentNo, @"^[A-Za-z0-9]{3}-\d{2}-\d{4}-[A-Za-z0-9]{6}$"))
+                    return BadRequest(new { status = 0, message = "Student number format must be like C26-01-0001-MAN121." });
             }
 
-            // If role is NOT student — studentNo, course, year should not be provided
-            if (model.Role != "student")
-            {
-                if (!string.IsNullOrWhiteSpace(model.StudentNo))
-                    return BadRequest(new { status = 0, message = "Student number should only be provided for student role." });
-            }
+            if (model.Role != "student" && !string.IsNullOrWhiteSpace(model.StudentNo))
+                return BadRequest(new { status = 0, message = "Student number should only be provided for student role." });
 
             try
             {
+                // Check if the username or email is already taken
                 if (await _loginRepository.UserExists(model.Username, model.Email))
                     return BadRequest(new
                     {
@@ -103,6 +135,7 @@ namespace StudentViolations.API.Controllers
 
                 string salt = GenerateSalt();
                 string hashedPassword = HashPassword(model.Password, salt);
+
                 User newUser = new User
                 {
                     Username = model.Username,
