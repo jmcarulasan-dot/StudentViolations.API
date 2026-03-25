@@ -28,6 +28,10 @@ namespace StudentViolations.API.Controllers
             try
             {
                 List<dynamic> students = await _studentRepository.GetAllStudents();
+
+                if (students == null || students.Count == 0)
+                    return NotFound(new { status = 0, message = "No students found." });
+
                 List<object> result = new List<object>();
 
                 foreach (dynamic student in students)
@@ -48,7 +52,7 @@ namespace StudentViolations.API.Controllers
                     });
                 }
 
-                return Ok(new { status = 1, message = "Success", data = result });
+                return Ok(new { status = 1, message = "Success", total = result.Count, data = result });
             }
             catch (Exception ex)
             {
@@ -61,11 +65,18 @@ namespace StudentViolations.API.Controllers
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
         {
+            // Validate studentNo is not empty
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 0, message = "Student number is required." });
+
+            // Normalize to uppercase for consistent matching
+            studentNo = studentNo.Trim().ToUpper();
+
             try
             {
                 dynamic student = await _studentRepository.GetStudentByStudentId(studentNo);
                 if (student == null)
-                    return NotFound(new { status = 0, message = "Student not found." });
+                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
 
                 // Fetch all violations for this student
                 List<dynamic> violations = await _violationRepository
@@ -121,7 +132,6 @@ namespace StudentViolations.API.Controllers
                     .Select(v => new
                     {
                         id = v.ViolationID,
-                        // Match violation's StudentId to the Students list to get their StudentNo
                         student_no = students
                             .FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
                         type = v.ViolationName,
@@ -130,9 +140,12 @@ namespace StudentViolations.API.Controllers
                         date = v.ViolationDate,
                         status = v.Status,
                         recorded_by = v.GuardName
-                    });
+                    }).ToList();
 
-                return Ok(new { status = 1, message = "Success", data = pending });
+                if (pending.Count == 0)
+                    return NotFound(new { status = 0, message = "No pending violations found." });
+
+                return Ok(new { status = 1, message = "Success", total = pending.Count, data = pending });
             }
             catch (Exception ex)
             {
@@ -148,6 +161,10 @@ namespace StudentViolations.API.Controllers
             try
             {
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
+
+                if (violations == null || violations.Count == 0)
+                    return NotFound(new { status = 0, message = "No violations found." });
+
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
                 // Group violations by severity and attach the student number to each one
