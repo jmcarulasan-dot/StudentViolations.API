@@ -27,9 +27,9 @@ namespace StudentViolations.API.Class
                 await connection.OpenAsync();
 
                 DynamicParameters param = new DynamicParameters();
+                param.Add("statementType", "GETLOGIN");
                 param.Add("username", username);
                 param.Add("email", "");
-                param.Add("statementType", "GETLOGIN");
 
                 var result = (await connection.QueryAsync(
                     "SP_STUDENT_GETUSERLOGIN",
@@ -53,7 +53,6 @@ namespace StudentViolations.API.Class
                             role = result.Role,
                             email = result.Email,
                             contactNumber = result.ContactNumber,
-                            // StudentNo is included in the token for student security
                             studentNo = result.StudentNo ?? ""
                         };
                     }
