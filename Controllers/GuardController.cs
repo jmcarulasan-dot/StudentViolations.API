@@ -189,46 +189,6 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // GET api/guard/violations/my-records
-        // Returns all violations that the currently logged in guard personally recorded
-        [HttpGet("violations/my-records")]
-        public async Task<IActionResult> GetMyViolations()
-        {
-            try
-            {
-                string? guardId = User.FindFirstValue("nameid");
-                if (string.IsNullOrEmpty(guardId))
-                    return Unauthorized(new { status = 0, message = "Guard ID not found in token." });
-
-                List<dynamic> violations = await _guardRepository.GetViolationsByGuardId(guardId);
-
-                if (violations == null || violations.Count == 0)
-                    return NotFound(new { status = 0, message = "No violations recorded by this guard." });
-
-                return Ok(new
-                {
-                    status = 1,
-                    message = "Success",
-                    total = violations.Count,
-                    data = violations.Select(v => new
-                    {
-                        id = v.ViolationID,
-                        student_no = v.StudentNo,
-                        student_name = v.StudentName,
-                        type = v.ViolationName,
-                        details = v.Description,
-                        severity = v.Severity,
-                        date = v.ViolationDate,
-                        status = v.Status
-                    })
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
-        }
-
         // GET api/guard/students
         // Returns all registered students
         [HttpGet("students")]

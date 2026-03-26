@@ -191,32 +191,6 @@ namespace StudentViolations.API.Class
             }
         }
 
-        // Gets all violations recorded by a specific guard using their GuardId
-        public async Task<List<dynamic>> GetViolationsByGuardId(string guardId)
-        {
-            SqlConnection connection = new SqlConnection(_connectionString);
-            try
-            {
-                await connection.OpenAsync();
-
-                DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETBYGUARD");
-                param.Add("GuardId", guardId);
-
-                var result = await connection.QueryAsync(
-                    "SP_GUARD", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result.ToList();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"GetViolationsByGuardId error: {ex.Message}");
-            }
-            finally
-            {
-                connection.Close();
-            }
-        }
     }
+
 }
