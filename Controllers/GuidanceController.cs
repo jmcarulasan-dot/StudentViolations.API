@@ -61,11 +61,16 @@ namespace StudentViolations.API.Controllers
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
         {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 0, message = "Student number is required." });
+
+            studentNo = studentNo.Trim().ToUpper();
+
             try
             {
                 dynamic student = await _studentRepository.GetStudentByStudentId(studentNo);
                 if (student == null)
-                    return NotFound(new { status = 0, message = "Student not found." });
+                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
 
                 List<dynamic> violations = await _violationRepository
                     .GetViolationsByStudentId((string)student.StudentNo);
@@ -83,6 +88,8 @@ namespace StudentViolations.API.Controllers
                         gender = student.Gender,
                         address = student.Address,
                         date_of_birth = student.DateOfBirth,
+                        course = student.Course,
+                        year = student.Year,
                         violation_count = violations.Count,
                         warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                         violations = violations.Select(v => new
