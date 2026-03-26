@@ -111,32 +111,44 @@ namespace StudentViolations.API.Controllers
             }
         }
 
-        // GET api/guidance/violations/pending
-        // Returns all violations that are still waiting for SAO approval
-        [HttpGet("violations/pending")]
-        public async Task<IActionResult> GetPendingViolations()
+        // GET api/guidance/violations/by-status
+        // Returns all violations grouped by status (Pending, Approved, Rejected) with counts
+        [HttpGet("violations/by-status")]
+        public async Task<IActionResult> GetViolationsByStatus()
         {
             try
             {
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
-                var pending = violations
-                    .Where(v => ((string)v.Status).Equals("Pending", StringComparison.OrdinalIgnoreCase))
-                    .Select(v => new
-                    {
-                        id = v.ViolationID,
-                        student_no = students
-                            .FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
-                        type = v.ViolationName,
-                        details = v.Description,
-                        severity = v.Severity,
-                        date = v.ViolationDate,
-                        status = v.Status,
-                        recorded_by = v.GuardName
-                    });
+                var statuses = new[] { "Pending", "Approved", "Rejected" };
 
-                return Ok(new { status = 1, message = "Success", data = pending });
+                var grouped = statuses.Select(s => new
+                {
+                    status = s,
+                    count = violations.Count(v => ((string)v.Status).Equals(s, StringComparison.OrdinalIgnoreCase)),
+                    violations = violations
+                        .Where(v => ((string)v.Status).Equals(s, StringComparison.OrdinalIgnoreCase))
+                        .Select(v => new
+                        {
+                            id = v.ViolationID,
+                            student_no = students
+                                .FirstOrDefault(s2 => s2.StudentID == v.StudentId)?.StudentNo,
+                            type = v.ViolationName,
+                            details = v.Description,
+                            severity = v.Severity,
+                            date = v.ViolationDate,
+                            recorded_by = v.GuardName
+                        })
+                });
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Success",
+                    total = violations.Count,
+                    data = grouped
+                });
             }
             catch (Exception ex)
             {
