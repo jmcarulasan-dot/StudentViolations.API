@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.Helpers;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 
 namespace StudentViolations.API.Controllers
@@ -18,6 +19,8 @@ namespace StudentViolations.API.Controllers
         private readonly ISAORepository _saoRepository;
 
         private static readonly string[] ValidGenders = { "male", "female" };
+        private static readonly string[] ValidCourses = { "bsit", "bscs", "bsba", "bsa", "bshm" };
+        private static readonly string[] ValidYears = { "1", "2", "3", "4" };
 
         public SAOController(
             IViolationRepository violationRepository,
@@ -59,46 +62,6 @@ namespace StudentViolations.API.Controllers
                         recorded_by = v.GuardName,
                         status = v.Status
                     })
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
-        }
-
-        // GET api/sao/violations/{id}
-        // Returns a single violation by ID with student number and guard name attached
-        [HttpGet("violations/{id}")]
-        public async Task<IActionResult> GetViolationById(int id)
-        {
-            if (id <= 0)
-                return BadRequest(new { status = 0, message = "Violation ID must be a positive number." });
-
-            try
-            {
-                dynamic violation = await _violationRepository.GetViolationById(id);
-                if (violation == null)
-                    return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
-
-                List<dynamic> students = await _studentRepository.GetAllStudents();
-
-                return Ok(new
-                {
-                    status = 1,
-                    message = "Success",
-                    data = new
-                    {
-                        id = violation.ViolationID,
-                        student_no = students
-                            .FirstOrDefault(s => s.StudentID == violation.StudentId)?.StudentNo,
-                        type = violation.ViolationName,
-                        details = violation.Description,
-                        severity = violation.Severity,
-                        date = violation.ViolationDate,
-                        recorded_by = violation.GuardName,
-                        status = violation.Status
-                    }
                 });
             }
             catch (Exception ex)
@@ -208,7 +171,7 @@ namespace StudentViolations.API.Controllers
         }
 
         // DELETE api/sao/violations/{id}
-        // Permanently removes a violation from the database
+        // Permanently removes a violation and returns a deletion history record in the response
         [HttpDelete("violations/{id}")]
         public async Task<IActionResult> DeleteViolation(int id)
         {
@@ -221,8 +184,29 @@ namespace StudentViolations.API.Controllers
                 if (violation == null)
                     return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
 
+                // Capture violation details before deleting — returned as the deletion history record
+                var deletionRecord = new
+                {
+                    deleted_violation_id = violation.ViolationID,
+                    student_id = violation.StudentId,
+                    type = violation.ViolationName,
+                    details = violation.Description,
+                    severity = violation.Severity,
+                    original_date = violation.ViolationDate,
+                    original_status = violation.Status,
+                    recorded_by = violation.GuardName,
+                    deleted_by = User.FindFirstValue(ClaimTypes.Name) ?? "SAO",
+                    deleted_at = DateTime.UtcNow
+                };
+
                 await _violationRepository.DeleteViolation(id);
-                return Ok(new { status = 1, message = "Violation deleted successfully." });
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Violation deleted successfully.",
+                    deletion_history = deletionRecord
+                });
             }
             catch (Exception ex)
             {
@@ -231,7 +215,8 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/sao/violations/summary
-        // Returns total violation counts grouped by status, severity, and type
+        // Returns total counts grouped by status, severity, and type
+        // Violation types are grouped case-insensitively — "No ID" and "no id" count as one
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetSummary()
         {
@@ -249,15 +234,20 @@ namespace StudentViolations.API.Controllers
                     data = new
                     {
                         total = violations.Count,
-                        pending = violations.Count(v => v.Status == "Pending"),
-                        approved = violations.Count(v => v.Status == "Approved"),
-                        rejected = violations.Count(v => v.Status == "Rejected"),
+                        pending = violations.Count(v => ((string)v.Status).Equals("Pending", StringComparison.OrdinalIgnoreCase)),
+                        approved = violations.Count(v => ((string)v.Status).Equals("Approved", StringComparison.OrdinalIgnoreCase)),
+                        rejected = violations.Count(v => ((string)v.Status).Equals("Rejected", StringComparison.OrdinalIgnoreCase)),
                         by_severity = violations
-                            .GroupBy(v => (string)v.Severity)
+                            .GroupBy(v => ((string)v.Severity).ToLower())
                             .Select(g => new { severity = g.Key, count = g.Count() }),
+                        // Case-insensitive — "No ID" and "no id" are treated as the same violation type
                         by_type = violations
-                            .GroupBy(v => (string)v.ViolationName)
-                            .Select(g => new { type = g.Key, count = g.Count() })
+                            .GroupBy(v => ((string)v.ViolationName).ToLower())
+                            .Select(g => new
+                            {
+                                type = g.First().ViolationName,
+                                count = g.Count()
+                            })
                     }
                 });
             }
@@ -360,8 +350,49 @@ namespace StudentViolations.API.Controllers
             }
         }
 
+        // GET api/sao/users/{id}
+        // Returns one user by ID — call this first to see current values before updating
+        [HttpGet("users/{id}")]
+        public async Task<IActionResult> GetUserById(int id)
+        {
+            if (id <= 0)
+                return BadRequest(new { status = 0, message = "User ID must be a positive number." });
+
+            try
+            {
+                dynamic user = await _saoRepository.GetUserById(id);
+                if (user == null)
+                    return NotFound(new { status = 0, message = $"User with ID {id} not found." });
+
+                return Ok(new
+                {
+                    status = 1,
+                    message = "Success. Copy the fields below into the update request body and change only what you need.",
+                    data = new
+                    {
+                        id = user.StudentID,
+                        username = user.Username,
+                        first_name = user.FirstName,
+                        last_name = user.LastName,
+                        email = user.Email,
+                        role = user.Role,
+                        gender = user.Gender,
+                        course = user.Course,
+                        year = user.Year,
+                        address = user.Address,
+                        contact_number = user.ContactNumber
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { status = 0, message = ex.Message });
+            }
+        }
+
         // PUT api/sao/users/{id}
-        // Updates a user's info — role cannot be changed here
+        // Updates a user's info — only send the fields you want to change, the rest stay the same
+        // Tip: call GET /api/sao/users/{id} first to see current values
         [HttpPut("users/{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserModel request)
         {
@@ -378,6 +409,7 @@ namespace StudentViolations.API.Controllers
                 if (!Regex.IsMatch(request.FirstName.Trim(), @"^[a-zA-Z\s\-]+$"))
                     return BadRequest(new { status = 0, message = "First name must contain letters only." });
             }
+
             if (request.LastName != null)
             {
                 if (request.LastName.Trim().Length < 2)
@@ -398,9 +430,25 @@ namespace StudentViolations.API.Controllers
                 !ValidGenders.Contains(request.Gender.Trim().ToLower()))
                 return BadRequest(new { status = 0, message = "Gender must be either 'male' or 'female'." });
 
+            if (request.Course != null &&
+                !ValidCourses.Contains(request.Course.Trim().ToLower()))
+                return BadRequest(new
+                {
+                    status = 0,
+                    message = "Invalid course. Accepted values are: BSIT, BSCS, BSBA, BSA, BSHM."
+                });
+
+            if (request.Year != null &&
+                !ValidYears.Contains(request.Year.Trim()))
+                return BadRequest(new
+                {
+                    status = 0,
+                    message = "Invalid year. Accepted values are: 1, 2, 3, 4."
+                });
+
             try
             {
-                // Get the current user data so we can fall back to existing values if a field is null
+                // Fetch current data — fields not in request body keep their existing values
                 dynamic user = await _saoRepository.GetUserById(id);
                 if (user == null)
                     return NotFound(new { status = 0, message = $"User with ID {id} not found." });
@@ -414,7 +462,7 @@ namespace StudentViolations.API.Controllers
                     ContactNumber = request.ContactNumber?.Trim() ?? (string)user.ContactNumber,
                     Gender = request.Gender?.Trim().ToLower() ?? (string)user.Gender,
                     Address = request.Address?.Trim() ?? (string)user.Address,
-                    Course = request.Course?.Trim() ?? (string)user.Course,
+                    Course = request.Course?.Trim().ToUpper() ?? (string)user.Course,
                     Year = request.Year?.Trim() ?? (string)user.Year,
                     Role = (string)user.Role
                 };
@@ -429,8 +477,10 @@ namespace StudentViolations.API.Controllers
                     {
                         id = updated.Id,
                         name = $"{updated.FirstName} {updated.LastName}",
+                        email = updated.Email,
                         role = updated.Role,
-                        email = updated.Email
+                        course = updated.Course,
+                        year = updated.Year
                     }
                 });
             }
