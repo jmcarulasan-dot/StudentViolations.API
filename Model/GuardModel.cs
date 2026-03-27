@@ -7,13 +7,13 @@
         public DateTime EndDate { get; set; }
     }
 
-    // Model for the POST student/violation endpoint — contains all info needed to record a violation
+    // Model for the POST student/violation endpoint
+    // GuardId is NOT included here — it is read automatically from the JWT token
     public class RecordViolationModel
     {
         public string StudentNo { get; set; }
         public string ViolationType { get; set; }
         public string Details { get; set; }
         public string Severity { get; set; }
-        public string GuardId { get; set; }
     }
 }
