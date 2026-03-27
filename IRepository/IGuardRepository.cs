@@ -9,6 +9,5 @@
         Task RecordViolation(dynamic violation);
         Task<List<dynamic>> GetAllStudents();
         Task<dynamic?> GetStudentByStudentNo(string studentNo);
-
     }
 }

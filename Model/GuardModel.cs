@@ -8,7 +8,6 @@
     }
 
     // Model for the POST student/violation endpoint
-    // GuardId is NOT included here — it is read automatically from the JWT token
     public class RecordViolationModel
     {
         public string StudentNo { get; set; }

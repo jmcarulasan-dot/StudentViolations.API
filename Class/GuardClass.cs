@@ -190,7 +190,5 @@ namespace StudentViolations.API.Class
                 connection.Close();
             }
         }
-
     }
-
 }

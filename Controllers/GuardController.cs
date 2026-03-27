@@ -23,7 +23,6 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/student/validate?studentNo=xxx
-        // Finds a student by QR code and returns warning level + full violation list
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
         {
@@ -68,8 +67,6 @@ namespace StudentViolations.API.Controllers
         }
 
         // POST api/guard/student/violation
-        // Records a new violation — GuardId is read from JWT token automatically
-        // The guard cannot fake their own ID — it always comes from whoever is logged in
         [HttpPost("student/violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationModel request)
         {
@@ -100,7 +97,6 @@ namespace StudentViolations.API.Controllers
 
             try
             {
-                // GuardId comes from the JWT token — whoever is logged in is the guard recorded
                 string? guardId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(guardId))
                     return Unauthorized(new { status = 0, message = "Guard ID not found in token." });
