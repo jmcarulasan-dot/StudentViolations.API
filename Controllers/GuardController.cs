@@ -23,7 +23,7 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/student/validate?studentNo=xxx
-        // Finds a student by QR code and returns warning level + full violation list with dates
+        // Finds a student by QR code and returns warning level + full violation list
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
         {
@@ -68,7 +68,8 @@ namespace StudentViolations.API.Controllers
         }
 
         // POST api/guard/student/violation
-        // Records a new violation for a student and returns their updated warning level
+        // Records a new violation — GuardId is read from JWT token automatically
+        // The guard cannot fake their own ID — it always comes from whoever is logged in
         [HttpPost("student/violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationModel request)
         {
@@ -83,9 +84,6 @@ namespace StudentViolations.API.Controllers
 
             if (string.IsNullOrWhiteSpace(request.Details))
                 return BadRequest(new { status = 0, message = "Violation details are required." });
-
-            if (string.IsNullOrWhiteSpace(request.GuardId))
-                return BadRequest(new { status = 0, message = "Guard ID is required." });
 
             if (string.IsNullOrWhiteSpace(request.Severity) ||
                 !ValidSeverities.Contains(request.Severity.Trim().ToLower()))
@@ -102,6 +100,11 @@ namespace StudentViolations.API.Controllers
 
             try
             {
+                // GuardId comes from the JWT token — whoever is logged in is the guard recorded
+                string? guardId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(guardId))
+                    return Unauthorized(new { status = 0, message = "Guard ID not found in token." });
+
                 dynamic student = await _guardRepository.GetStudentByQrCode(request.StudentNo);
                 if (student == null)
                     return NotFound(new { status = 0, message = $"Student '{request.StudentNo}' not found." });
@@ -111,7 +114,7 @@ namespace StudentViolations.API.Controllers
                     StudentId = (int)student.StudentID,
                     Type = request.ViolationType,
                     Details = request.Details,
-                    GuardId = request.GuardId.Trim(),
+                    GuardId = guardId,
                     Severity = request.Severity
                 };
 
@@ -137,7 +140,7 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/violations/summary?StartDate=xxx&EndDate=xxx
-        // Returns a summary of violations within a date range including the most common violation type
+        // Returns a summary of violations within a date range
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetViolationSummary([FromQuery] GetSummaryModel request)
         {
@@ -213,41 +216,6 @@ namespace StudentViolations.API.Controllers
                         course = s.Course,
                         year = s.Year
                     })
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
-        }
-
-        // GET api/guard/students/exist?studentNo=xxx
-        // Returns a specific student by their StudentNo
-        [HttpGet("students/exist")]
-        public async Task<IActionResult> GetStudentByStudentNo([FromQuery] string studentNo)
-        {
-            if (string.IsNullOrWhiteSpace(studentNo))
-                return BadRequest(new { status = 0, message = "Student number is required." });
-
-            studentNo = studentNo.Trim().ToUpper();
-
-            try
-            {
-                dynamic student = await _guardRepository.GetStudentByStudentNo(studentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
-
-                return Ok(new
-                {
-                    status = 1,
-                    message = "Success",
-                    data = new
-                    {
-                        student_no = student.StudentNo,
-                        name = $"{student.FirstName} {student.LastName}",
-                        course = student.Course,
-                        year = student.Year
-                    }
                 });
             }
             catch (Exception ex)
