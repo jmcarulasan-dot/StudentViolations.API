@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 
 namespace StudentViolations.API.Controllers
@@ -18,8 +19,13 @@ namespace StudentViolations.API.Controllers
         // Valid roles accepted by the system
         private static readonly string[] ValidRoles = { "guard", "student", "guidance", "sao" };
 
-        // Valid courses and years for student registration
-        private static readonly string[] ValidCourses = { "bsit", "bscs", "bsba", "bsa", "bshm" };
+        // Valid gender values
+        private static readonly string[] ValidGenders = { "male", "female" };
+
+        // Valid courses for ACLC College of Mandaue
+        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba" };
+
+        // Valid year levels
         private static readonly string[] ValidYears = { "1", "2", "3", "4" };
 
         public RegistrationController(
@@ -37,19 +43,75 @@ namespace StudentViolations.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegistrationModel model)
         {
-            // Check model annotations first (Required, MinLength, EmailAddress, RegularExpression etc.)
-            if (!ModelState.IsValid)
-                return BadRequest(new
-                {
-                    status = 0,
-                    message = "Validation failed.",
-                    errors = ModelState
-                        .Where(e => e.Value.Errors.Count > 0)
-                        .ToDictionary(
-                            e => e.Key,
-                            e => e.Value.Errors.Select(x => x.ErrorMessage).ToList()
-                        )
-                });
+            // Validate request body is not null
+            if (model == null)
+                return BadRequest(new { status = 0, message = "Request body is required." });
+
+            // Validate username
+            if (string.IsNullOrWhiteSpace(model.Username))
+                return BadRequest(new { status = 0, message = "Username is required." });
+            if (model.Username.Trim().Length < 2)
+                return BadRequest(new { status = 0, message = "Username must be at least 2 characters." });
+
+            // Validate password
+            if (string.IsNullOrWhiteSpace(model.Password))
+                return BadRequest(new { status = 0, message = "Password is required." });
+            if (model.Password.Length < 8)
+                return BadRequest(new { status = 0, message = "Password must be at least 8 characters." });
+
+            // Validate email
+            if (string.IsNullOrWhiteSpace(model.Email))
+                return BadRequest(new { status = 0, message = "Email is required." });
+            if (!Regex.IsMatch(model.Email.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                return BadRequest(new { status = 0, message = "Invalid email format." });
+
+            // Validate first name — letters only
+            if (string.IsNullOrWhiteSpace(model.FirstName))
+                return BadRequest(new { status = 0, message = "First name is required." });
+            if (!Regex.IsMatch(model.FirstName.Trim(), @"^[a-zA-Z\s\-]+$"))
+                return BadRequest(new { status = 0, message = "First name must contain letters only." });
+
+            // Validate last name — letters only
+            if (string.IsNullOrWhiteSpace(model.LastName))
+                return BadRequest(new { status = 0, message = "Last name is required." });
+            if (!Regex.IsMatch(model.LastName.Trim(), @"^[a-zA-Z\s\-]+$"))
+                return BadRequest(new { status = 0, message = "Last name must contain letters only." });
+
+            // Validate date of birth
+            if (string.IsNullOrWhiteSpace(model.DateOfBirth))
+                return BadRequest(new { status = 0, message = "Date of birth is required." });
+            if (!DateTime.TryParse(model.DateOfBirth, out DateTime parsedDob))
+                return BadRequest(new { status = 0, message = "Invalid date of birth format. Use YYYY-MM-DD (e.g. 2000-01-12)." });
+            if (parsedDob >= DateTime.Today)
+                return BadRequest(new { status = 0, message = "Date of birth must be in the past." });
+            if (parsedDob < new DateTime(1900, 1, 1))
+                return BadRequest(new { status = 0, message = "Date of birth is not a valid date." });
+            int age = DateTime.Today.Year - parsedDob.Year;
+            if (parsedDob > DateTime.Today.AddYears(-age)) age--;
+            if (age < 15)
+                return BadRequest(new { status = 0, message = "User must be at least 15 years old." });
+
+            // Validate gender
+            if (string.IsNullOrWhiteSpace(model.Gender))
+                return BadRequest(new { status = 0, message = "Gender is required." });
+            if (!ValidGenders.Contains(model.Gender.Trim().ToLower()))
+                return BadRequest(new { status = 0, message = "Gender must be either 'male' or 'female'." });
+
+            // Validate address
+            if (string.IsNullOrWhiteSpace(model.Address))
+                return BadRequest(new { status = 0, message = "Address is required." });
+
+            // Validate contact number — must be exactly 11 digits
+            if (string.IsNullOrWhiteSpace(model.Number))
+                return BadRequest(new { status = 0, message = "Contact number is required." });
+            if (!Regex.IsMatch(model.Number.Trim(), @"^\d{11}$"))
+                return BadRequest(new { status = 0, message = "Contact number must be exactly 11 digits." });
+
+            // Validate role
+            if (string.IsNullOrWhiteSpace(model.Role))
+                return BadRequest(new { status = 0, message = "Role is required." });
+            if (!ValidRoles.Contains(model.Role.Trim().ToLower()))
+                return BadRequest(new { status = 0, message = "Role must be one of: guard, student, guidance, sao." });
 
             // Normalize inputs
             model.Username = model.Username.Trim();
@@ -64,58 +126,32 @@ namespace StudentViolations.API.Controllers
             model.Course = model.Course?.Trim();
             model.Year = model.Year?.Trim();
 
-            // Validate DateOfBirth is a valid past date
-            if (!DateTime.TryParse(model.DateOfBirth, out DateTime parsedDob))
-                return BadRequest(new { status = 0, message = "Invalid date of birth format. Use YYYY-MM-DD (e.g. 2000-01-12)." });
-
-            if (parsedDob >= DateTime.Today)
-                return BadRequest(new { status = 0, message = "Date of birth must be in the past." });
-
-            if (parsedDob < new DateTime(1900, 1, 1))
-                return BadRequest(new { status = 0, message = "Date of birth is not a valid date." });
-
-            // Calculate age — must be at least 15 years old
-            int age = DateTime.Today.Year - parsedDob.Year;
-            if (parsedDob > DateTime.Today.AddYears(-age)) age--;
-            if (age < 15)
-                return BadRequest(new { status = 0, message = "User must be at least 15 years old." });
-
             // If role is student — course, year and studentNo are all required
             if (model.Role == "student")
             {
                 if (string.IsNullOrWhiteSpace(model.Course))
                     return BadRequest(new { status = 0, message = "Course is required for student role." });
 
+                if (!ValidCourses.Contains(model.Course.Trim().ToLower()))
+                    return BadRequest(new { status = 0, message = "Invalid course. Accepted values are: BSIT, BSHM, BSBA." });
+
                 if (string.IsNullOrWhiteSpace(model.Year))
                     return BadRequest(new { status = 0, message = "Year is required for student role." });
 
+                if (!ValidYears.Contains(model.Year.Trim()))
+                    return BadRequest(new { status = 0, message = "Invalid year. Accepted values are: 1, 2, 3, 4." });
+
                 if (string.IsNullOrWhiteSpace(model.StudentNo))
                     return BadRequest(new { status = 0, message = "Student number is required for student role." });
+
+                // Validate studentNo format — must match C26-01-0001-MAN121
+                if (!Regex.IsMatch(model.StudentNo, @"^[A-Za-z0-9]{3}-\d{2}-\d{4}-[A-Za-z0-9]{6}$"))
+                    return BadRequest(new { status = 0, message = "Student number format must be like C26-01-0001-MAN121." });
             }
 
-            // Validate course and year values if provided
-            if (!string.IsNullOrWhiteSpace(model.Course) &&
-                !ValidCourses.Contains(model.Course.Trim().ToLower()))
-                return BadRequest(new
-                {
-                    status = 0,
-                    message = "Invalid course. Accepted values are: BSIT, BSCS, BSBA, BSA, BSHM."
-                });
-
-            if (!string.IsNullOrWhiteSpace(model.Year) &&
-                !ValidYears.Contains(model.Year.Trim()))
-                return BadRequest(new
-                {
-                    status = 0,
-                    message = "Invalid year. Accepted values are: 1, 2, 3, 4."
-                });
-
-            // If role is NOT student — studentNo, course, year should not be provided
-            if (model.Role != "student")
-            {
-                if (!string.IsNullOrWhiteSpace(model.StudentNo))
-                    return BadRequest(new { status = 0, message = "Student number should only be provided for student role." });
-            }
+            // If role is NOT student — studentNo should not be provided
+            if (model.Role != "student" && !string.IsNullOrWhiteSpace(model.StudentNo))
+                return BadRequest(new { status = 0, message = "Student number should only be provided for student role." });
 
             try
             {
@@ -148,7 +184,7 @@ namespace StudentViolations.API.Controllers
                     RegistrationDate = DateTime.Now,
                     // Capitalize the first letter of role to keep it consistent (e.g. "student" → "Student")
                     Role = char.ToUpper(model.Role[0]) + model.Role.Substring(1).ToLower(),
-                    Course = model.Course,
+                    Course = model.Course?.ToUpper(),
                     Year = model.Year,
                     StudentNo = model.StudentNo
                 };

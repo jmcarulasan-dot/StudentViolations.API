@@ -29,6 +29,10 @@ namespace StudentViolations.API.Controllers
             try
             {
                 List<dynamic> students = await _studentRepository.GetAllStudents();
+
+                if (students == null || students.Count == 0)
+                    return NotFound(new { status = 0, message = "No students found." });
+
                 List<object> result = new List<object>();
 
                 foreach (dynamic student in students)
@@ -48,7 +52,7 @@ namespace StudentViolations.API.Controllers
                     });
                 }
 
-                return Ok(new { status = 1, message = "Success", data = result });
+                return Ok(new { status = 1, message = "Success", total = result.Count, data = result });
             }
             catch (Exception ex)
             {
@@ -121,6 +125,9 @@ namespace StudentViolations.API.Controllers
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
+                if (violations == null || violations.Count == 0)
+                    return NotFound(new { status = 0, message = "No violations found." });
+
                 var statuses = new[] { "Pending", "Approved", "Rejected" };
 
                 var grouped = statuses.Select(s => new
@@ -164,6 +171,10 @@ namespace StudentViolations.API.Controllers
             try
             {
                 List<dynamic> violations = await _violationRepository.GetAllViolations();
+
+                if (violations == null || violations.Count == 0)
+                    return NotFound(new { status = 0, message = "No violations found." });
+
                 List<dynamic> students = await _studentRepository.GetAllStudents();
 
                 var grouped = violations

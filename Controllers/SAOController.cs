@@ -18,8 +18,13 @@ namespace StudentViolations.API.Controllers
         private readonly IStudentRepository _studentRepository;
         private readonly ISAORepository _saoRepository;
 
+        // Valid gender values
         private static readonly string[] ValidGenders = { "male", "female" };
-        private static readonly string[] ValidCourses = { "bsit", "bscs", "bsba", "bsa", "bshm" };
+
+        // Valid courses accepted by the school
+        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba" };
+
+        // Valid year levels
         private static readonly string[] ValidYears = { "1", "2", "3", "4" };
 
         public SAOController(
@@ -240,7 +245,7 @@ namespace StudentViolations.API.Controllers
                         by_severity = violations
                             .GroupBy(v => ((string)v.Severity).ToLower())
                             .Select(g => new { severity = g.Key, count = g.Count() }),
-                        // Case-insensitive — "No ID" and "no id" are treated as the same violation type
+                        // Case-insensitive grouping — "No ID" and "no id" are treated as the same violation type
                         by_type = violations
                             .GroupBy(v => ((string)v.ViolationName).ToLower())
                             .Select(g => new
@@ -402,6 +407,7 @@ namespace StudentViolations.API.Controllers
             if (request == null)
                 return BadRequest(new { status = 0, message = "Request body is required." });
 
+            // Validate firstName if provided — letters only
             if (request.FirstName != null)
             {
                 if (request.FirstName.Trim().Length < 2)
@@ -410,6 +416,7 @@ namespace StudentViolations.API.Controllers
                     return BadRequest(new { status = 0, message = "First name must contain letters only." });
             }
 
+            // Validate lastName if provided — letters only
             if (request.LastName != null)
             {
                 if (request.LastName.Trim().Length < 2)
@@ -418,33 +425,30 @@ namespace StudentViolations.API.Controllers
                     return BadRequest(new { status = 0, message = "Last name must contain letters only." });
             }
 
+            // Validate email if provided
             if (request.Email != null &&
                 !Regex.IsMatch(request.Email.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
                 return BadRequest(new { status = 0, message = "Invalid email format." });
 
+            // Validate contact number if provided — must be 11 digits starting with 09
             if (request.ContactNumber != null &&
                 !Regex.IsMatch(request.ContactNumber.Trim(), @"^09\d{9}$"))
                 return BadRequest(new { status = 0, message = "Contact number must be 11 digits and start with 09 (e.g. 09123456789)." });
 
+            // Validate gender if provided
             if (request.Gender != null &&
                 !ValidGenders.Contains(request.Gender.Trim().ToLower()))
                 return BadRequest(new { status = 0, message = "Gender must be either 'male' or 'female'." });
 
+            // Validate course if provided
             if (request.Course != null &&
                 !ValidCourses.Contains(request.Course.Trim().ToLower()))
-                return BadRequest(new
-                {
-                    status = 0,
-                    message = "Invalid course. Accepted values are: BSIT, BSCS, BSBA, BSA, BSHM."
-                });
+                return BadRequest(new { status = 0, message = "Invalid course. Accepted values are: BSIT, BSHM, BSBA." });
 
+            // Validate year if provided
             if (request.Year != null &&
                 !ValidYears.Contains(request.Year.Trim()))
-                return BadRequest(new
-                {
-                    status = 0,
-                    message = "Invalid year. Accepted values are: 1, 2, 3, 4."
-                });
+                return BadRequest(new { status = 0, message = "Invalid year. Accepted values are: 1, 2, 3, 4." });
 
             try
             {
@@ -464,6 +468,7 @@ namespace StudentViolations.API.Controllers
                     Address = request.Address?.Trim() ?? (string)user.Address,
                     Course = request.Course?.Trim().ToUpper() ?? (string)user.Course,
                     Year = request.Year?.Trim() ?? (string)user.Year,
+                    // Role is never changed — always keep the existing role
                     Role = (string)user.Role
                 };
 
