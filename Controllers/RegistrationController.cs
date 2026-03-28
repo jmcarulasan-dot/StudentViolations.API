@@ -219,7 +219,7 @@ namespace StudentViolations.API.Controllers
             return Convert.ToBase64String(salt);
         }
 
-        // Hashes the password using PBKDF2 with the provided salt — same method used in LoginClass
+        // Hashes the password using PBKDF2 with the provided salt
         private string HashPassword(string password, string salt)
         {
             byte[] saltBytes = Convert.FromBase64String(salt);
