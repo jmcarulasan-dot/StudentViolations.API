@@ -26,7 +26,6 @@ namespace StudentViolations.API.Class
                 DynamicParameters param = new DynamicParameters();
                 param.Add("statementType", "GETALLUSERS");
 
-                // Call SP_SAO and return the full list of users
                 var result = await connection.QueryAsync(
                     "SP_SAO", param,
                     commandType: CommandType.StoredProcedure);
@@ -55,7 +54,6 @@ namespace StudentViolations.API.Class
                 param.Add("statementType", "GETUSERBYID");
                 param.Add("StudentID", id);
 
-                // Returns one user record or null if the ID does not exist
                 var result = await connection.QueryFirstOrDefaultAsync(
                     "SP_SAO", param,
                     commandType: CommandType.StoredProcedure);
@@ -93,7 +91,6 @@ namespace StudentViolations.API.Class
                 param.Add("Year", user.Year);
                 param.Add("Role", user.Role);
 
-                // Execute SP_SAO to update — no return value needed
                 await connection.ExecuteAsync(
                     "SP_SAO", param,
                     commandType: CommandType.StoredProcedure);
@@ -120,7 +117,6 @@ namespace StudentViolations.API.Class
                 param.Add("statementType", "DELETEUSER");
                 param.Add("StudentID", id);
 
-                // Execute SP_SAO to delete — no return value needed
                 await connection.ExecuteAsync(
                     "SP_SAO", param,
                     commandType: CommandType.StoredProcedure);
