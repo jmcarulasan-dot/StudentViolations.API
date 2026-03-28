@@ -101,6 +101,7 @@ namespace StudentViolations.API.Class
         }
 
         // Saves a new violation record to the database
+        //Validating a violation for student
         public async Task RecordViolation(dynamic violation)
         {
             SqlConnection connection = new SqlConnection(_connectionString);

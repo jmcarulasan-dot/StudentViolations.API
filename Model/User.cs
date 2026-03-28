@@ -3,7 +3,6 @@
     // Represents a user record 
     public class User
     {
-        public int Id { get; set; }
         public string Username { get; set; }
         public string PasswordHash { get; set; }
         public string Salt { get; set; }
@@ -18,7 +17,6 @@
         public string Role { get; set; }
         public string? Course { get; set; }
         public string? Year { get; set; }
-        public string? Number { get; set; }
         public string? StudentNo { get; set; }
     }
 }
