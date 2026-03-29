@@ -1,178 +1,226 @@
-﻿
-==Student Violation System API==
+﻿# Student Violation System API
 
-A RESTful API for managing student violations built with **ASP.NET Core**, **Dapper**, and **SQL Server**. Designed for ACLC College of Mandaue as a team project.
+A RESTful API for managing student violations built with **ASP.NET Core**, **Dapper**, and **SQL Server**.  
+Designed for **ACLC College of Mandaue** as a team project.
 
+---
 
---Team Members--
+## Team Members
 
-          Name        |    Responsibility  |
-Jeff Marion Carulasan | ASP.NET Core API   |
-Hannah MAica Maningo  | MudBlazor Web App  |
-Junamie Rivera        | Flutter Mobile App |
-Katrina Palag         | Documentaton       |
+| Name                  | Responsibility       |
+|-----------------------|----------------------|
+| Jeff Marion Carulasan | ASP.NET Core API     |
+| Hannah Maica Maningo  | MudBlazor Web App    |
+| Junamie Rivera        | Flutter Mobile App   |
+| Katrina Palag         | Ducomentation         |
 
+---
 
---Tech Stack--
+## Tech Stack
 
-Backend: ASP.NET Core Web API
-ORM: Dapper (Stored Procedures)
-Database: SQL Server (SSMS)
-Authentication: JWT Bearer Token
-Documentation: Swagger / OpenAPI
-Mobile: Flutter
-Web: MudBlazor
+| Layer          | Technology                        |
+|----------------|-----------------------------------|
+| Backend        | ASP.NET Core Web API (.NET 8)     |
+| Language       | C#                                |
+| Database       | SQL Server LocalDB                |
+| ORM            | Dapper (Stored Procedures)        |
+| Authentication | JWT Bearer Token                  |
+| Documentation  | Swagger / OpenAPI                 |
+| QR Code        | QRCoder NuGet Package             |
 
+---
 
+## Project Structure
 
---Project Structure--
-
+```
 StudentViolations.API/
-├── Class/                  # Dapper implementations
-│   ├── GuardClass.cs
-│   ├── LoginClass.cs
-│   ├── RegisterClass.cs
-│   ├── SAOClass.cs
-│   ├── StudentClass.cs
-│   └── ViolationClass.cs
-├── Controllers/            # API Controllers
+├── Class/                      # Dapper implementations — all database logic
+│   ├── GuardClass.cs           # Calls SP_GUARD
+│   ├── LoginClass.cs           # Calls SP_STUDENT_GETUSERLOGIN
+│   ├── RegisterClass.cs        # Calls SP_STUDENT_REGISTRATION
+│   ├── SAOClass.cs             # Calls SP_SAO
+│   ├── StudentClass.cs         # Calls SP_STUDENT_DATA
+│   └── ViolationClass.cs       # Calls SP_VIOLATION
+├── Controllers/                # API Controllers — receives requests, validates input
 │   ├── GuardController.cs
 │   ├── GuidanceController.cs
 │   ├── LoginController.cs
 │   ├── RegistrationController.cs
 │   ├── SAOController.cs
 │   └── StudentController.cs
-├── IRepository/            # Interfaces
+├── Helpers/                    # Shared utility code
+│   └── ViolationHelper.cs      # GetWarningLevel() — used by all controllers
+├── IRepository/                # Interfaces — contracts for each Class
 │   ├── IGuardRepository.cs
 │   ├── ILoginRepository.cs
 │   ├── IRegisterRepository.cs
 │   ├── ISAORepository.cs
 │   ├── IStudentRepository.cs
 │   └── IViolationRepository.cs
-├── Model/                  # Request/Response models
+├── Model/                      # Request and response models
+│   ├── GuardModel.cs           # GetSummaryModel, RecordViolationModel
+│   ├── LoginModel.cs
+│   ├── RegistrationModel.cs
+│   ├── SaoModel.cs             # UpdateUserModel
+│   ├── ServiceResponse.cs      # Generic response wrapper
+│   └── User.cs                 # User entity
 ├── Properties/
 │   └── launchSettings.json
 ├── appsettings.json
 └── Program.cs
+```
 
+---
 
+## Authentication
 
---Authentication--
+JWT Bearer Token with role-based access control. Token is valid for **8 hours** (one full school day).
 
-JWT Bearer Token authentication with 4 roles:
- 
-|      Role       |             Access             |
-|    `student`    | View own violations            |
-|    `guard`      | Record and view violations     |
-|    `guidance`   | Manage students and violations |
-|    `sao`        | Full admin access              |
+| Role       | What They Can Do                                              |
+|------------|---------------------------------------------------------------|
+| `guard`    | Scan QR code, record violations, view students                |
+| `student`  | View own violations, profile, and QR code                     |
+| `guidance` | View all students, reports, violations by status and severity |
+| `sao`      | Full admin — approve/reject violations, manage all users      |
 
 All protected endpoints require:
+```
+Authorization: Bearer <your_token_here>
+```
 
-Authorization: Bearer <token>
+---
 
+## API Endpoints
 
---API Endpoints--
+### Public — No token required
 
-Public (No token required)
+| Method | Endpoint    | Description                    |
+|--------|-------------|--------------------------------|
+| POST   | `/login`    | Login and receive JWT token    |
+| POST   | `/register` | Register a new user account    |
 
-| Method |     Endpoint    |           Description          |
-| POST   | `/api/login`    | Login and receive JWT token    |
-| POST   | `/api/register` | Register a new student account |
+### Guard — `[Authorize(Roles = "guard")]`
 
-Student — `[Authorize(Roles = "student")]`
+| Method | Endpoint                          | Description                                         |
+|--------|-----------------------------------|-----------------------------------------------------|
+| GET    | `/api/guard/student/validate`     | Scan QR code — returns student info + warning level + violation history |
+| POST   | `/api/guard/student/violation`    | Record a new violation for a student                |
+| GET    | `/api/guard/violations/summary`   | Get violation summary for a date range              |
+| GET    | `/api/guard/students`             | Get list of all registered students                 |
+| GET    | `/api/guard/students/exist`       | Check if a student exists by StudentNo              |
 
-| Method |          Endpoint         |        Description        |
-|  GET   | `/api/student/violations` | Get own violation records |
+### Student — `[Authorize(Roles = "student")]`
 
-Guard — `[Authorize(Roles = "guard")]`
- 
-| Method |              Endpoint             |          Description           |
-|  GET   | `/api/guard/students`             | Get all students               |
-|  GET   | `/api/guard/students/{studentNo}` | Search student by student no.  |
-|  POST  | `/api/guard/violations`           | Record a new violation         |
-|  GET   | `/api/guard/violations`           | View all violations            |
+| Method | Endpoint                  | Description                          |
+|--------|---------------------------|--------------------------------------|
+| GET    | `/api/student/violations` | View own violations and warning level |
+| GET    | `/api/student/profile`    | View own profile information          |
+| GET    | `/api/student/qrcode`     | View own QR code                      |
 
-Guidance — `[Authorize(Roles = "guidance")]`
+### Guidance — `[Authorize(Roles = "guidance")]`
 
-| Method |                 Endpoint               |         Description        |
-| GET    | `/api/guidance/students`               | Get all students           |
-| GET    | `/api/guidance/students/{studentNo}`   | Get student by student no. |
-| GET    | `/api/guidance/violations`             | Get all violations         |
-| PUT    | `/api/guidance/violations/{id}/resolve`| Resolve a violation        |
-| DELETE | `/api/guidance/violations/{id}`        | Delete a violation         |
+| Method | Endpoint                                  | Description                                        |
+|--------|-------------------------------------------|----------------------------------------------------|
+| GET    | `/api/guidance/students`                  | View all students with violation counts            |
+| GET    | `/api/guidance/students/{studentNo}/report` | View full profile and violation history of a student |
+| GET    | `/api/guidance/violations/by-status`      | View violations grouped by status                  |
+| GET    | `/api/guidance/violations/by-severity`    | View violations grouped by severity level          |
 
-SAO — `[Authorize(Roles = "sao")]`
+### SAO (Admin) — `[Authorize(Roles = "sao")]`
 
-| Method |                 Endpoint                 |                  Description                 |
-| GET    | `/api/sao/violations`                    | Get all violations with student info         | 
-| GET    | `/api/sao/violations/by-status/{status}` | Filter by status (pending/approved/rejected) |
-| GET    | `/api/sao/violations/summary`            | Get violation stats and summary              |
-| PUT    | `/api/sao/violations/{id}/approve`       | Approve a violation                          |
-| PUT    | `/api/sao/violations/{id}/reject`        | Reject a violation                           |
-| DELETE | `/api/sao/violations/{id}`               | Delete a violation                           |
-| GET    | `/api/sao/students/{studentNo}/report`   | Full student profile + violation history     |
-| GET    | `/api/sao/users`                         | Get all system users                         |
-| PUT    | `/api/sao/users/{id}`                    | Update user info                             |
-| DELETE | `/api/sao/users/{id}`                    | Delete a user                                |
+| Method | Endpoint                                  | Description                                         |
+|--------|-------------------------------------------|-----------------------------------------------------|
+| GET    | `/api/sao/violations`                     | View all violations in the system                   |
+| GET    | `/api/sao/violations/by-status/{status}`  | Filter violations by Pending, Approved, or Rejected |
+| PUT    | `/api/sao/violations/{id}/approve`        | Approve a violation                                 |
+| PUT    | `/api/sao/violations/{id}/reject`         | Reject a violation                                  |
+| DELETE | `/api/sao/violations/{id}`               | Delete a violation — returns deletion history       |
+| GET    | `/api/sao/violations/summary`             | View violation counts by status, severity, and type |
+| GET    | `/api/sao/students/{studentNo}/report`    | View full student profile and violation history     |
+| GET    | `/api/sao/users`                          | View all registered users                           |
+| GET    | `/api/sao/users/{id}`                     | View one user by ID — use before updating           |
+| PUT    | `/api/sao/users/{id}`                     | Update a user's information                         |
+| DELETE | `/api/sao/users/{id}`                    | Permanently delete a user                           |
 
+---
 
+## Database
 
---Database--
+**Database name:** `StudentViolations`  
+**Engine:** SQL Server LocalDB  
+**Pattern:** All queries use Stored Procedures with `@statementType` parameter as a switch
 
-Database`StudentViolations`
-ORM: Dapper with Stored Procedures
-Pattern: `@statementType` parameter per stored procedure
+### Tables
 
---Stored Procedures--
+| Table      | Description                                            |
+|------------|--------------------------------------------------------|
+| Users      | All users regardless of role — guards, students, guidance, SAO |
+| Students   | Student-specific records including QR code             |
+| Violations | All violation records created by guards                |
 
-|      Stored Procedure     |     Used By     |
-| `SP_GUARD`                | GuardClass      |
-| `SP_STUDENT_DATA`         | StudentClass    |
-| `SP_VIOLATION`            | ViolationClass  |
-| `SP_SAO`                  | SAOClass        |
-| `SP_STUDENT_GETUSERLOGIN` | LoginClass      |
-| `SP_STUDENT_REGISTRATION` | RegisterClass   |
+### Stored Procedures
 
+| Stored Procedure          | Used By        | Operations                                                    |
+|---------------------------|----------------|---------------------------------------------------------------|
+| `SP_STUDENT_GETUSERLOGIN` | LoginClass     | GETLOGIN, USEREXISTS                                          |
+| `SP_STUDENT_REGISTRATION` | RegisterClass  | REGISTER, STUDENTNOEXISTS                                     |
+| `SP_GUARD`                | GuardClass     | GETBYDATE, GETBYSTUDENT, GETSTUDENTBYQR, RECORDVIOLATION, GETALLSTUDENTS, GETSTUDENTBYNO, GETBYGUARD |
+| `SP_VIOLATION`            | ViolationClass | GETALL, GETBYID, GETBYSTUDENT, RECORDVIOLATION, UPDATESTATUS, DELETE |
+| `SP_STUDENT_DATA`         | StudentClass   | GETSTUDENT, GETALLSTUDENTS, UPDATESTUDENT                     |
+| `SP_SAO`                  | SAOClass       | GETALLUSERS, GETUSERBYID, UPDATEUSER, DELETEUSER              |
 
+---
 
-==Getting Started==
+## Warning Level System
 
---Prerequisites--
+| Violations | Level    | Color  |
+|------------|----------|--------|
+| 0          | Safe     | Green  |
+| 1          | Warning  | Yellow |
+| 2          | Danger   | Orange |
+| 3 or more  | Critical | Red    |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
 - Visual Studio 2022
 - .NET 8 SDK
 - SQL Server / SSMS
-- Postman or Swagger UI
+- Swagger UI (built-in)
 
-Setup
+### Setup
 
-1. Clone the repository
+**1. Clone the repository**
 ```bash
 git clone https://github.com/jmcarulasan-dot/StudentViolations.API.git
 cd StudentViolations.API
 ```
 
-2. Configure the database connection
+**2. Configure the database connection**
 
-Open `appsettings.json` and update:
+Open `appsettings.json` and update the connection string:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=YOUR_SERVER;Database=StudentViolations;Trusted_Connection=True;"
+    "StudentViolationsdb": "Server=(localdb)\\MSSQLLocalDB;Database=StudentViolations;Trusted_Connection=True;MultipleActiveResultSets=true"
   }
 }
 ```
 
-3. Run the stored procedures in SSMS
+**3. Run all stored procedures in SSMS**
 
-All schema changes are applied manually via raw SQL in SSMS (no EF Core migrations).
+All database schema and stored procedures are applied manually via raw SQL in SSMS.  
+No Entity Framework migrations are used in this project.
 
-4. Update launchSettings.json with your IP
+**4. Update launchSettings.json with your IP**
 ```json
 "applicationUrl": "http://YOUR_IP:5277"
 ```
 
-5. Run the project
+**5. Run the project**
 
 Press `F5` in Visual Studio or:
 ```bash
@@ -184,8 +232,19 @@ dotnet run
 http://YOUR_IP:5277/swagger
 ```
 
+---
 
+## Test Accounts
 
---License--
+| Name   | Username | Password  | Role     |
+|--------|----------|-----------|----------|
+| Jeff   | jeff     | jeff123!  | guard    |
+| Hannah | hannah   | hannah123!| student  |
+| Juna   | juna     | juna123!  | guidance |
+| Kath   | kath     | kath123!  | sao      |
+
+---
+
+## License
 
 This project is for educational purposes only — ACLC College of Mandaue, 2026.
