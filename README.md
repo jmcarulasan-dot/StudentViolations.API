@@ -1,32 +1,33 @@
 ﻿# Student Violation System API
 
 A RESTful API for managing student violations built with **ASP.NET Core**, **Dapper**, and **SQL Server**.  
-Designed for **ACLC College of Mandaue** as a team project.
+Designed for **ACLC College of Mandaue** as a capstone project.
 
 ---
 
 ## Team Members
 
-| Name                  | Responsibility       |
-|-----------------------|----------------------|
-| Jeff Marion Carulasan | ASP.NET Core API     |
-| Hannah Maica Maningo  | MudBlazor Web App    |
-| Junamie Rivera        | Flutter Mobile App   |
-| Katrina Palag         | Ducomentation        |
+| Name                  | Responsibility              |
+|-----------------------|-----------------------------|
+| Jeff Marion Carulasan | ASP.NET Core API            |
+| Hannah Maica Maningo  | Flutter Mobile App          |
+| Junamie Rivera        | MudBlazor Web App           |
+| Katrina Palag         | Documentation               |
 
 ---
 
 ## Tech Stack
 
-| Layer          | Technology                        |
-|----------------|-----------------------------------|
-| Backend        | ASP.NET Core Web API (.NET 8)     |
-| Language       | C#                                |
-| Database       | SQL Server LocalDB                |
-| ORM            | Dapper (Stored Procedures)        |
-| Authentication | JWT Bearer Token                  |
-| Documentation  | Swagger / OpenAPI                 |
-| QR Code        | QRCoder NuGet Package             |
+| Layer          | Technology                    |
+|----------------|-------------------------------|
+| Backend        | ASP.NET Core Web API (.NET 8) |
+| Language       | C#                            |
+| Database       | SQL Server LocalDB            |
+| ORM            | Dapper (Stored Procedures)    |
+| Authentication | JWT Bearer Token              |
+| Documentation  | Swagger / OpenAPI             |
+| QR Code        | QRCoder NuGet Package         |
+| Password Hash  | PBKDF2 (HMACSHA256)           |
 
 ---
 
@@ -58,12 +59,14 @@ StudentViolations.API/
 │   ├── IStudentRepository.cs
 │   └── IViolationRepository.cs
 ├── Model/                      # Request and response models
-│   ├── GuardModel.cs           # GetSummaryModel, RecordViolationModel
+│   ├── GuardModel.cs           # RecordViolationModel, GetSummaryModel
 │   ├── LoginModel.cs
 │   ├── RegistrationModel.cs
 │   ├── SaoModel.cs             # UpdateUserModel
 │   ├── ServiceResponse.cs      # Generic response wrapper
-│   └── User.cs                 # User entity
+│   ├── StudentModel.cs
+│   ├── UserModel.cs
+│   └── ViolationModel.cs
 ├── Properties/
 │   └── launchSettings.json
 ├── appsettings.json
@@ -78,15 +81,17 @@ JWT Bearer Token with role-based access control. Token is valid for **8 hours** 
 
 | Role       | What They Can Do                                              |
 |------------|---------------------------------------------------------------|
-| `guard`    | Scan QR code, record violations, view students                |
-| `student`  | View own violations, profile, and QR code                     |
-| `guidance` | View all students, reports, violations by status and severity |
-| `sao`      | Full admin — approve/reject violations, manage all users      |
+| `Guard`    | Scan QR code, record violations, view students                |
+| `Student`  | View own violations, profile, and QR code                     |
+| `Guidance` | View all students, reports, violations by status and severity |
+| `Sao`      | Full admin — approve/reject violations, manage all users      |
 
 All protected endpoints require:
 ```
 Authorization: Bearer <your_token_here>
 ```
+
+Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (full name), `studentNo`
 
 ---
 
@@ -94,53 +99,71 @@ Authorization: Bearer <your_token_here>
 
 ### Public — No token required
 
-| Method | Endpoint    | Description                    |
-|--------|-------------|--------------------------------|
-| POST   | `/login`    | Login and receive JWT token    |
-| POST   | `/register` | Register a new user account    |
+| Method | Endpoint    | Description                 |
+|--------|-------------|-----------------------------|
+| POST   | `/login`    | Login and receive JWT token |
+| POST   | `/register` | Register a new user account |
 
-### Guard — `[Authorize(Roles = "guard")]`
+### Guard — `[Authorize(Roles = "guard,Guard")]`
 
-| Method | Endpoint                          | Description                                                             |
-|--------|-----------------------------------|-------------------------------------------------------------------------|
-| GET    | `/api/guard/student/validate`     | Scan QR code — returns student info + warning level + violation history |
-| POST   | `/api/guard/student/violation`    | Record a new violation for a student                                    |
-| GET    | `/api/guard/violations/summary`   | Get violation summary for a date range                                  |
-| GET    | `/api/guard/students`             | Get list of all registered students                                     |
-| GET    | `/api/guard/students/exist`       | Check if a student exists by StudentNo                                  |
+| Method | Endpoint                        | Description                                                             |
+|--------|---------------------------------|-------------------------------------------------------------------------|
+| GET    | `/api/guard/student/validate`   | Scan QR code — returns student info + warning level + violation history |
+| POST   | `/api/guard/student/violation`  | Record a new violation for a student                                    |
+| GET    | `/api/guard/violations/summary` | Get violation summary for a date range                                  |
+| GET    | `/api/guard/students`           | Get list of all registered students                                     |
+| GET    | `/api/guard/students/exist`     | Check if a student exists by StudentNo                                  |
 
-### Student — `[Authorize(Roles = "student")]`
+### Student — `[Authorize(Roles = "Student,student")]`
 
-| Method | Endpoint                  | Description                           |
-|--------|---------------------------|---------------------------------------|
-| GET    | `/api/student/violations` | View own violations and warning level |
-| GET    | `/api/student/profile`    | View own profile information          |
-| GET    | `/api/student/qrcode`     | View own QR code                      |
+| Method | Endpoint                  | Description                                                    |
+|--------|---------------------------|----------------------------------------------------------------|
+| GET    | `/api/student/violations` | View own violations and warning level (reads StudentNo from token) |
+| GET    | `/api/student/profile`    | View own profile information                                   |
+| GET    | `/api/student/qrcode`     | View own QR code (Base64)                                      |
 
-### Guidance — `[Authorize(Roles = "guidance")]`
+### Guidance — `[Authorize(Roles = "guidance,Guidance")]`
 
-| Method | Endpoint                                      | Description                                          |
-|--------|-----------------------------------------------|------------------------------------------------------|
-| GET    | `/api/guidance/students`                      | View all students with violation counts              |
-| GET    | `/api/guidance/students/{studentNo}/report`   | View full profile and violation history of a student |
-| GET    | `/api/guidance/violations/by-status`          | View violations grouped by status                    |
-| GET    | `/api/guidance/violations/by-severity`        | View violations grouped by severity level            |
+| Method | Endpoint                                    | Description                                          |
+|--------|---------------------------------------------|------------------------------------------------------|
+| GET    | `/api/guidance/students`                    | View all students with violation counts              |
+| GET    | `/api/guidance/students/{studentNo}/report` | View full profile and violation history of a student |
+| GET    | `/api/guidance/violations/by-status`        | View violations grouped by Pending/Approved/Rejected |
+| GET    | `/api/guidance/violations/by-severity`      | View violations grouped by severity level            |
 
-### SAO (Admin) — `[Authorize(Roles = "sao")]`
+### SAO (Admin) — `[Authorize(Roles = "sao,Sao")]`
 
-| Method | Endpoint                                  | Description                                         |
-|--------|-------------------------------------------|-----------------------------------------------------|
-| GET    | `/api/sao/violations`                     | View all violations in the system                   |
-| GET    | `/api/sao/violations/by-status/{status}`  | Filter violations by Pending, Approved, or Rejected |
-| PUT    | `/api/sao/violations/{id}/approve`        | Approve a violation                                 |
-| PUT    | `/api/sao/violations/{id}/reject`         | Reject a violation                                  |
-| DELETE | `/api/sao/violations/{id}`                | Delete a violation — returns deletion history       |
-| GET    | `/api/sao/violations/summary`             | View violation counts by status, severity, and type |
-| GET    | `/api/sao/students/{studentNo}/report`    | View full student profile and violation history     |
-| GET    | `/api/sao/users`                          | View all registered users                           |
-| GET    | `/api/sao/users/{id}`                     | View one user by ID — use before updating           |
-| PUT    | `/api/sao/users/{id}`                     | Update a user's information                         |
-| DELETE | `/api/sao/users/{id}`                     | Permanently delete a user                           |
+| Method | Endpoint                                 | Description                                    |
+|--------|------------------------------------------|------------------------------------------------|
+| GET    | `/api/sao/violations`                    | View all violations in the system              |
+| GET    | `/api/sao/violations/by-status/{status}` | Filter by Pending, Approved, or Rejected       |
+| PUT    | `/api/sao/violations/{id}/approve`       | Approve a violation                            |
+| PUT    | `/api/sao/violations/{id}/reject`        | Reject a violation                             |
+| DELETE | `/api/sao/violations/{id}`               | Delete a violation                             |
+| GET    | `/api/sao/violations/summary`            | View violation counts by status/severity/type  |
+| GET    | `/api/sao/students/{studentNo}/report`   | View full student profile and violation history|
+| GET    | `/api/sao/users`                         | View all registered users                      |
+| GET    | `/api/sao/users/{id}`                    | View one user by ID                            |
+| PUT    | `/api/sao/users/{id}`                    | Update a user's information                    |
+| DELETE | `/api/sao/users/{id}`                    | Permanently delete a user                      |
+
+---
+
+## Input Validation Rules
+
+| Field          | Valid Values                              |
+|----------------|-------------------------------------------|
+| `role`         | guard, student, guidance, sao             |
+| `gender`       | male, female                              |
+| `severity`     | minor, moderate, major, critical          |
+| `status`       | Pending, Approved, Rejected               |
+| `course`       | BSIT, BSHM, BSBA                         |
+| `year`         | 1, 2, 3, 4                               |
+| `studentNo`    | Format: `C26-01-0001-MAN121`             |
+| `contactNumber`| Exactly 11 digits                        |
+| `password`     | Minimum 8 characters                     |
+| `username`     | Minimum 2 characters                     |
+| `age`          | Must be at least 15 years old            |
 
 ---
 
@@ -148,37 +171,54 @@ Authorization: Bearer <your_token_here>
 
 **Database name:** `StudentViolations`  
 **Engine:** SQL Server LocalDB  
-**Pattern:** All queries use Stored Procedures with `@statementType` parameter as a switch
+**Pattern:** All queries use Stored Procedures with `@statementType` as a switch
 
 ### Tables
 
 | Table      | Description                                                    |
 |------------|----------------------------------------------------------------|
 | Users      | All users regardless of role — guards, students, guidance, SAO |
-| Students   | Student-specific records including QR code                     |
+| Students   | Student-specific records including QR code and StudentNo       |
 | Violations | All violation records created by guards                        |
+
+> When a student registers, their data is saved to **both** the Users table and the Students table. The QR code (Base64 PNG) is generated and stored in the Students table.
 
 ### Stored Procedures
 
-| Stored Procedure          | Used By        | Operations                                                                                           |
-|---------------------------|----------------|------------------------------------------------------------------------------------------------------|
-| `SP_STUDENT_GETUSERLOGIN` | LoginClass     | GETLOGIN, USEREXISTS                                                                                 |
-| `SP_STUDENT_REGISTRATION` | RegisterClass  | REGISTER, STUDENTNOEXISTS                                                                            |
-| `SP_GUARD`                | GuardClass     | GETBYDATE, GETBYSTUDENT, GETSTUDENTBYQR, RECORDVIOLATION, GETALLSTUDENTS, GETSTUDENTBYNO, GETBYGUARD |
-| `SP_VIOLATION`            | ViolationClass | GETALL, GETBYID, GETBYSTUDENT, RECORDVIOLATION, UPDATESTATUS, DELETE                                 |
-| `SP_STUDENT_DATA`         | StudentClass   | GETSTUDENT, GETALLSTUDENTS, UPDATESTUDENT                                                            |
-| `SP_SAO`                  | SAOClass       | GETALLUSERS, GETUSERBYID, UPDATEUSER, DELETEUSER                                                     |
+| Stored Procedure          | Used By        | Statement Types                                                         |
+|---------------------------|----------------|-------------------------------------------------------------------------|
+| `SP_STUDENT_GETUSERLOGIN` | LoginClass     | GETLOGIN, USEREXISTS                                                    |
+| `SP_STUDENT_REGISTRATION` | RegisterClass  | REGISTER, STUDENTNOEXISTS                                               |
+| `SP_GUARD`                | GuardClass     | GETBYDATE, GETBYSTUDENT, GETSTUDENTBYQR, RECORDVIOLATION, GETALLSTUDENTS, GETSTUDENTBYNO |
+| `SP_VIOLATION`            | ViolationClass | GETALL, GETBYID, GETBYSTUDENT, RECORDVIOLATION, UPDATESTATUS, DELETE    |
+| `SP_STUDENT_DATA`         | StudentClass   | GETSTUDENT, GETALLSTUDENTS, UPDATESTUDENT                               |
+| `SP_SAO`                  | SAOClass       | GETALLUSERS, GETUSERBYID, UPDATEUSER, DELETEUSER                        |
 
 ---
 
 ## Warning Level System
 
-| Violations | Level    | Color  |
-|------------|----------|--------|
-| 0          | Safe     | Green  |
-| 1          | Warning  | Yellow |
-| 2          | Danger   | Orange |
-| 3 or more  | Critical | Red    |
+| Violations | Warning Level | Color  |
+|------------|---------------|--------|
+| 0          | Safe          | Green  |
+| 1          | Warning       | Yellow |
+| 2          | Danger        | Orange |
+| 3 or more  | Critical      | Red    |
+
+Calculated by `ViolationHelper.GetWarningLevel(int count)` — used by all 4 controllers.
+
+---
+
+## ServiceResponse
+
+All Class methods return `ServiceResponse<T>` with these fields:
+
+| Field     | Type     | Description                          |
+|-----------|----------|--------------------------------------|
+| `Status`  | int      | HTTP status code (200, 400, 404, 500)|
+| `Message` | string?  | Description of what happened         |
+| `Data`    | T?       | The actual returned data             |
+| `Token`   | string?  | JWT token (login only)               |
 
 ---
 
@@ -201,7 +241,7 @@ cd StudentViolations.API
 
 **2. Configure the database connection**
 
-Open `appsettings.json` and update the connection string:
+Open `appsettings.json` and update the connection string if needed:
 ```json
 {
   "ConnectionStrings": {
@@ -212,10 +252,10 @@ Open `appsettings.json` and update the connection string:
 
 **3. Run all stored procedures in SSMS**
 
-All database schema and stored procedures are applied manually via raw SQL in SSMS.  
+All schema and stored procedures are applied manually via raw SQL in SSMS.  
 No Entity Framework migrations are used in this project.
 
-**4. Update launchSettings.json with your IP**
+**4. Update launchSettings.json with your network IP**
 ```json
 "applicationUrl": "http://YOUR_IP:5277"
 ```
@@ -230,18 +270,21 @@ dotnet run
 **6. Open Swagger**
 ```
 http://YOUR_IP:5277/swagger
+https://localhost:7001/swagger
 ```
 
 ---
 
 ## Test Accounts
 
-| Name   | Username | Password  | Role     |
-|--------|----------|-----------|----------|
-| Jeff   | jeff     | jeff123!  | guard    |
-| Hannah | hannah   | hannah123!| student  |
-| Juna   | juna     | juna123!  | guidance |
-| Kath   | kath     | kath123!  | sao      |
+| Name   | Username | Password   | Role     |
+|--------|----------|------------|----------|
+| Jeff   | jeff     | jeff123!   | Guard    |
+| Hannah | hannah   | hannah123! | Student  |
+| Juna   | juna     | juna123!   | Guidance |
+| Kath   | kath     | kath123!   | SAO      |
+
+Hannah's StudentNo: `C26-01-0001-MAN121`
 
 ---
 
