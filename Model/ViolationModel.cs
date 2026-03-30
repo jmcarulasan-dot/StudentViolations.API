@@ -1,0 +1,18 @@
+﻿namespace StudentViolations.API.Model
+{
+    // Matches the Violations table in the database
+    public class ViolationModel
+    {
+        public int ViolationID { get; set; }
+        public int StudentId { get; set; }
+        public string StudentNo { get; set; }
+        public string StudentName { get; set; }
+        public string ViolationName { get; set; }
+        public string Description { get; set; }
+        public string Severity { get; set; }
+        public string GuardId { get; set; }
+        public string GuardName { get; set; }
+        public DateTime ViolationDate { get; set; }
+        public string Status { get; set; }
+    }
+}

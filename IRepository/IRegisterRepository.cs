@@ -1,10 +1,10 @@
 ﻿using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
 
 namespace StudentViolations.API.IRepository
 {
-    // Defines the registration operation the RegisterClass must implement
     public interface IRegisterRepository
     {
-        Task<ServiceResponse<object>> RegisterUser(User user);
+        Task<ServiceResponse<UserModel>> RegisterUser(UserModel user);
     }
 }

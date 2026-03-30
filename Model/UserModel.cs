@@ -1,8 +1,8 @@
 ﻿namespace StudentViolations.API.Model
 {
-    // Represents a user record 
-    public class User
+    public class UserModel
     {
+        public int StudentID { get; set; }
         public string Username { get; set; }
         public string PasswordHash { get; set; }
         public string Salt { get; set; }

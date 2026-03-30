@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.Helpers;
 using StudentViolations.API.IRepository;
+using StudentViolations.API.Model;
 using System.Security.Claims;
 
 namespace StudentViolations.API.Controllers
@@ -14,150 +15,127 @@ namespace StudentViolations.API.Controllers
         private readonly IStudentRepository _studentRepository;
         private readonly IViolationRepository _violationRepository;
 
-        public StudentController(IStudentRepository studentRepository, IViolationRepository violationRepository)
+        public StudentController(
+            IStudentRepository studentRepository,
+            IViolationRepository violationRepository)
         {
             _studentRepository = studentRepository;
             _violationRepository = violationRepository;
         }
 
-        // Gets the StudentNo of the currently logged-in student from the JWT token
         private string GetLoggedInStudentNo()
         {
-            return User.FindFirstValue("studentNo") ?? string.Empty;
+            var studentNo = User.FindFirstValue("studentNo");
+            return string.IsNullOrWhiteSpace(studentNo) ? string.Empty : studentNo;
         }
 
         // GET api/student/violations
-        // Returns violations for the currently logged-in student ONLY
-        // Security: StudentNo comes from JWT token — student cannot access other students' data
         [HttpGet("violations")]
         public async Task<IActionResult> GetMyViolations()
         {
-            try
+            string studentNo = GetLoggedInStudentNo();
+            if (string.IsNullOrEmpty(studentNo))
+                return Unauthorized(new { status = 401, message = "Student number not found in token. Please login again." });
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
+
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+
+            int pending = violations.Count(v => v.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase));
+            int approved = violations.Count(v => v.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase));
+            int rejected = violations.Count(v => v.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase));
+
+            return Ok(new
             {
-                string studentNo = GetLoggedInStudentNo();
-                if (string.IsNullOrEmpty(studentNo))
-                    return Unauthorized(new { status = 0, message = "Invalid token. Please login again." });
-
-                var student = await _studentRepository.GetStudentByStudentId(studentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = "Student not found." });
-
-                var violations = await _violationRepository.GetViolationsByStudentId(studentNo);
-
-                int pendingCount = violations.Count(v => ((string)v.Status).Equals("Pending", StringComparison.OrdinalIgnoreCase));
-                int approvedCount = violations.Count(v => ((string)v.Status).Equals("Approved", StringComparison.OrdinalIgnoreCase));
-                int rejectedCount = violations.Count(v => ((string)v.Status).Equals("Rejected", StringComparison.OrdinalIgnoreCase));
-
-                return Ok(new
+                status = 200,
+                message = "Violations retrieved successfully.",
+                data = new
                 {
-                    status = 1,
-                    message = "Violations retrieved successfully.",
-                    data = new
+                    student_no = studentResult.Data.StudentNo,
+                    name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
+                    total_violations = violations.Count,
+                    pending,
+                    approved,
+                    rejected,
+                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
+                    violations = violations.Select(v => new
                     {
-                        student_no = student.StudentNo,
-                        name = $"{student.FirstName} {student.LastName}",
-                        total_violations = violations.Count,
-                        pending = pendingCount,
-                        approved = approvedCount,
-                        rejected = rejectedCount,
-                        warning_level = ViolationHelper.GetWarningLevel(violations.Count),
-                        violations = violations.Select(v => new
-                        {
-                            id = v.ViolationID,
-                            type = v.ViolationName,
-                            details = v.Description,
-                            severity = v.Severity,
-                            date = v.ViolationDate,
-                            status = v.Status,
-                            recorded_by = v.GuardName
-                        })
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                        id = v.ViolationID,
+                        type = v.ViolationName,
+                        details = v.Description,
+                        severity = v.Severity,
+                        date = v.ViolationDate,
+                        status = v.Status,
+                        recorded_by = v.GuardName
+                    })
+                }
+            });
         }
 
         // GET api/student/profile
-        // Returns the logged-in student's own profile only
-        // Security: uses JWT token — student cannot view other students' profiles
         [HttpGet("profile")]
         public async Task<IActionResult> GetMyProfile()
         {
-            try
+            string studentNo = GetLoggedInStudentNo();
+            if (string.IsNullOrEmpty(studentNo))
+                return Unauthorized(new { status = 401, message = "Student number not found in token. Please login again." });
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
+
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+
+            return Ok(new
             {
-                string studentNo = GetLoggedInStudentNo();
-                if (string.IsNullOrEmpty(studentNo))
-                    return Unauthorized(new { status = 0, message = "Invalid token. Please login again." });
-
-                var student = await _studentRepository.GetStudentByStudentId(studentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = "Student not found." });
-
-                var violations = await _violationRepository.GetViolationsByStudentId(studentNo);
-
-                return Ok(new
+                status = 200,
+                message = "Profile retrieved successfully.",
+                data = new
                 {
-                    status = 1,
-                    message = "Profile retrieved successfully.",
-                    data = new
-                    {
-                        student_no = student.StudentNo,
-                        name = $"{student.FirstName} {student.LastName}",
-                        email = student.Email,
-                        gender = student.Gender,
-                        course = student.Course,
-                        year = student.Year,
-                        contact_number = student.ContactNumber,
-                        address = student.Address,
-                        total_violations = violations.Count,
-                        warning_level = ViolationHelper.GetWarningLevel(violations.Count)
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                    student_no = studentResult.Data.StudentNo,
+                    name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
+                    email = studentResult.Data.Email,
+                    gender = studentResult.Data.Gender,
+                    course = studentResult.Data.Course,
+                    year = studentResult.Data.Year,
+                    contact_number = studentResult.Data.ContactNumber,
+                    address = studentResult.Data.Address,
+                    total_violations = violations.Count,
+                    warning_level = ViolationHelper.GetWarningLevel(violations.Count)
+                }
+            });
         }
 
         // GET api/student/qrcode
-        // Returns the logged-in student's own QR code only
-        // Security: uses JWT token — student cannot view other students' QR codes
         [HttpGet("qrcode")]
         public async Task<IActionResult> GetMyQrCode()
         {
-            try
+            string studentNo = GetLoggedInStudentNo();
+            if (string.IsNullOrEmpty(studentNo))
+                return Unauthorized(new { status = 401, message = "Student number not found in token. Please login again." });
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
+
+            if (studentResult.Data.QRCode == null)
+                return NotFound(new { status = 404, message = "QR code not found for this student." });
+
+            return Ok(new
             {
-                string studentNo = GetLoggedInStudentNo();
-                if (string.IsNullOrEmpty(studentNo))
-                    return Unauthorized(new { status = 0, message = "Invalid token. Please login again." });
-
-                var student = await _studentRepository.GetStudentByStudentId(studentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = "Student not found." });
-
-                if (student.QRCode == null)
-                    return NotFound(new { status = 0, message = "QR code not found for this student." });
-
-                return Ok(new
+                status = 200,
+                message = "QR code retrieved successfully.",
+                data = new
                 {
-                    status = 1,
-                    message = "QR code retrieved successfully.",
-                    data = new
-                    {
-                        student_no = student.StudentNo,
-                        name = $"{student.FirstName} {student.LastName}",
-                        qr_code = student.QRCode
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                    student_no = studentResult.Data.StudentNo,
+                    name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
+                    qr_code = studentResult.Data.QRCode
+                }
+            });
         }
     }
 }

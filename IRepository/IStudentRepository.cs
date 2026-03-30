@@ -1,10 +1,12 @@
-﻿namespace StudentViolations.API.IRepository
+﻿using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
+
+namespace StudentViolations.API.IRepository
 {
-    // Defines all student data operations the StudentClass must implement
     public interface IStudentRepository
     {
-        Task<dynamic?> GetStudentByStudentId(string studentId);
-        Task UpdateStudent(dynamic student);
-        Task<List<dynamic>> GetAllStudents();
+        Task<ServiceResponse<StudentModel>> GetStudentByStudentId(string studentNo);
+        Task<ServiceResponse<bool>> UpdateStudent(StudentModel student);
+        Task<ServiceResponse<List<StudentModel>>> GetAllStudents();
     }
 }

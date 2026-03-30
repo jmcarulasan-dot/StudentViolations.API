@@ -1,14 +1,15 @@
-﻿namespace StudentViolations.API.IRepository
+﻿using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
+
+namespace StudentViolations.API.IRepository
 {
-    // Defines all guard-related operations the GuardClass must implement
     public interface IGuardRepository
     {
-        Task<List<dynamic>> GetViolationsInDateRange(DateTime startDate, DateTime endDate);
-        Task<List<dynamic>> GetViolationsByStudentId(string studentId);
-        Task<dynamic?> GetStudentByQrCode(string qrCode);
-        Task RecordViolation(dynamic violation);
-        Task<List<dynamic>> GetAllStudents();
-        Task<dynamic?> GetStudentByStudentNo(string studentNo);
-
+        Task<ServiceResponse<List<ViolationModel>>> GetViolationsInDateRange(DateTime startDate, DateTime endDate);
+        Task<ServiceResponse<List<ViolationModel>>> GetViolationsByStudentId(string studentNo);
+        Task<ServiceResponse<StudentModel>> GetStudentByQrCode(string qrCode);
+        Task<ServiceResponse<bool>> RecordViolation(ViolationModel violation);
+        Task<ServiceResponse<List<StudentModel>>> GetAllStudents();
+        Task<ServiceResponse<StudentModel>> GetStudentByStudentNo(string studentNo);
     }
 }

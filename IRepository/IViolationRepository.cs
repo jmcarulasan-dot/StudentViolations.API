@@ -1,13 +1,15 @@
-﻿namespace StudentViolations.API.IRepository
+﻿using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
+
+namespace StudentViolations.API.IRepository
 {
-    // Defines all violation-related operations the ViolationClass must implement
     public interface IViolationRepository
     {
-        Task RecordViolation(dynamic violation);
-        Task<List<dynamic>> GetViolationsByStudentId(string studentId);
-        Task<List<dynamic>> GetAllViolations();
-        Task<dynamic?> GetViolationById(int id);
-        Task UpdateViolationStatus(int id, string status);
-        Task DeleteViolation(int id);
+        Task<ServiceResponse<bool>> RecordViolation(ViolationModel violation);
+        Task<ServiceResponse<List<ViolationModel>>> GetViolationsByStudentId(string studentNo);
+        Task<ServiceResponse<List<ViolationModel>>> GetAllViolations();
+        Task<ServiceResponse<ViolationModel>> GetViolationById(int id);
+        Task<ServiceResponse<bool>> UpdateViolationStatus(int id, string status);
+        Task<ServiceResponse<bool>> DeleteViolation(int id);
     }
 }

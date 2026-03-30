@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.Helpers;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
-using System.Security.Claims;
 
 namespace StudentViolations.API.Controllers
 {
@@ -13,8 +12,6 @@ namespace StudentViolations.API.Controllers
     public class GuardController : ControllerBase
     {
         private readonly IGuardRepository _guardRepository;
-
-        // Valid severity values — anything outside this list is rejected
         private static readonly string[] ValidSeverities = { "minor", "moderate", "major", "critical" };
 
         public GuardController(IGuardRepository guardRepository)
@@ -23,31 +20,33 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guard/student/validate?studentNo=xxx
-        // Finds a student by QR code and returns warning level + full violation list with dates
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
         {
             if (string.IsNullOrWhiteSpace(studentNo))
-                return BadRequest(new { status = 0, message = "Student number is required." });
+                return BadRequest(new { status = 400, message = "Student number is required." });
 
             studentNo = studentNo.Trim().ToUpper();
 
-            try
+            // Get student
+            var studentResult = await _guardRepository.GetStudentByQrCode(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, studentResult);
+
+            // Get violations
+            var violationsResult = await _guardRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+
+            return Ok(new
             {
-                dynamic student = await _guardRepository.GetStudentByQrCode(studentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
-
-                List<dynamic> violations = await _guardRepository
-                    .GetViolationsByStudentId((string)student.StudentNo);
-
-                return Ok(new
+                status = 200,
+                message = "Success",
+                data = new
                 {
-                    status = 1,
-                    student_no = student.StudentNo,
-                    name = $"{student.FirstName} {student.LastName}",
-                    course = student.Course,
-                    year = student.Year,
+                    student_no = studentResult.Data.StudentNo,
+                    name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
+                    course = studentResult.Data.Course,
+                    year = studentResult.Data.Year,
                     violation_count = violations.Count,
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                     violations = violations.Select(v => new
@@ -59,201 +58,160 @@ namespace StudentViolations.API.Controllers
                         status = v.Status,
                         recorded_by = v.GuardName
                     })
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                }
+            });
         }
 
         // POST api/guard/student/violation
-        // Records a new violation for a student and returns their updated warning level
         [HttpPost("student/violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationModel request)
         {
             if (request == null)
-                return BadRequest(new { status = 0, message = "Request body is required." });
-
+                return BadRequest(new { status = 400, message = "Request body is required." });
             if (string.IsNullOrWhiteSpace(request.StudentNo))
-                return BadRequest(new { status = 0, message = "Student number is required." });
-
+                return BadRequest(new { status = 400, message = "Student number is required." });
             if (string.IsNullOrWhiteSpace(request.ViolationType))
-                return BadRequest(new { status = 0, message = "Violation type is required." });
-
+                return BadRequest(new { status = 400, message = "Violation type is required." });
             if (string.IsNullOrWhiteSpace(request.Details))
-                return BadRequest(new { status = 0, message = "Violation details are required." });
-
+                return BadRequest(new { status = 400, message = "Details are required." });
             if (string.IsNullOrWhiteSpace(request.GuardId))
-                return BadRequest(new { status = 0, message = "Guard ID is required." });
-
+                return BadRequest(new { status = 400, message = "Guard ID is required." });
             if (string.IsNullOrWhiteSpace(request.Severity) ||
                 !ValidSeverities.Contains(request.Severity.Trim().ToLower()))
-                return BadRequest(new
-                {
-                    status = 0,
-                    message = $"Invalid severity '{request.Severity}'. Accepted values are: minor, moderate, major, critical."
-                });
+                return BadRequest(new { status = 400, message = "Severity must be: minor, moderate, major, or critical." });
 
             request.StudentNo = request.StudentNo.Trim().ToUpper();
             request.Severity = request.Severity.Trim().ToLower();
-            request.ViolationType = request.ViolationType.Trim();
-            request.Details = request.Details.Trim();
 
-            try
+            // Get student
+            var studentResult = await _guardRepository.GetStudentByQrCode(request.StudentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, studentResult);
+
+            // Build ViolationModel
+            var violation = new ViolationModel
             {
-                dynamic student = await _guardRepository.GetStudentByQrCode(request.StudentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = $"Student '{request.StudentNo}' not found." });
+                StudentId = studentResult.Data.StudentID,
+                ViolationName = request.ViolationType.Trim(),
+                Description = request.Details.Trim(),
+                Severity = request.Severity,
+                GuardId = request.GuardId.Trim()
+            };
 
-                var violation = new
+            var recordResult = await _guardRepository.RecordViolation(violation);
+            if (recordResult.Status != 200)
+                return StatusCode(recordResult.Status, recordResult);
+
+            // Get updated violations
+            var violationsResult = await _guardRepository.GetViolationsByStudentId(request.StudentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+
+            return Ok(new
+            {
+                status = 200,
+                message = "Violation recorded successfully.",
+                data = new
                 {
-                    StudentId = (int)student.StudentID,
-                    Type = request.ViolationType,
-                    Details = request.Details,
-                    GuardId = request.GuardId.Trim(),
-                    Severity = request.Severity
-                };
-
-                await _guardRepository.RecordViolation(violation);
-
-                List<dynamic> violations = await _guardRepository
-                    .GetViolationsByStudentId((string)student.StudentNo);
-
-                return Ok(new
-                {
-                    status = 1,
-                    message = "Violation recorded successfully.",
-                    student_no = student.StudentNo,
-                    name = $"{student.FirstName} {student.LastName}",
+                    student_no = studentResult.Data.StudentNo,
+                    name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
                     new_violation_count = violations.Count,
                     new_warning_level = ViolationHelper.GetWarningLevel(violations.Count)
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                }
+            });
         }
 
         // GET api/guard/violations/summary?StartDate=xxx&EndDate=xxx
-        // Returns a summary of violations within a date range including the most common violation type
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetViolationSummary([FromQuery] GetSummaryModel request)
         {
             if (request.StartDate == default)
-                return BadRequest(new { status = 0, message = "Start date is required." });
-
+                return BadRequest(new { status = 400, message = "Start date is required." });
             if (request.EndDate == default)
-                return BadRequest(new { status = 0, message = "End date is required." });
-
+                return BadRequest(new { status = 400, message = "End date is required." });
             if (request.StartDate > request.EndDate)
-                return BadRequest(new { status = 0, message = "Start date cannot be after end date." });
-
+                return BadRequest(new { status = 400, message = "Start date cannot be after end date." });
             if ((request.EndDate - request.StartDate).TotalDays > 365)
-                return BadRequest(new { status = 0, message = "Date range cannot exceed 1 year." });
+                return BadRequest(new { status = 400, message = "Date range cannot exceed 1 year." });
 
-            try
+            var result = await _guardRepository.GetViolationsInDateRange(request.StartDate, request.EndDate);
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            var violations = result.Data ?? new List<ViolationModel>();
+            if (violations.Count == 0)
+                return NotFound(new { status = 404, message = "No violations found in this date range." });
+
+            string topViolation = violations
+                .GroupBy(v => v.ViolationName)
+                .OrderByDescending(g => g.Count())
+                .FirstOrDefault()?.Key ?? "N/A";
+
+            return Ok(new
             {
-                List<dynamic> violations = await _guardRepository
-                    .GetViolationsInDateRange(request.StartDate, request.EndDate);
-
-                if (violations == null || violations.Count == 0)
-                    return NotFound(new
-                    {
-                        status = 0,
-                        message = "No violations found in this date range.",
-                        totalViolations = 0,
-                        topViolation = "N/A",
-                        startDate = request.StartDate,
-                        endDate = request.EndDate
-                    });
-
-                string topViolation = violations
-                    .GroupBy(v => (string)v.ViolationName)
-                    .OrderByDescending(g => g.Count())
-                    .FirstOrDefault()?.Key ?? "N/A";
-
-                return Ok(new
+                status = 200,
+                message = "Success",
+                data = new
                 {
-                    status = 1,
                     totalViolations = violations.Count,
                     topViolation,
                     startDate = request.StartDate,
                     endDate = request.EndDate
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                }
+            });
         }
 
         // GET api/guard/students
-        // Returns all registered students
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
         {
-            try
+            var result = await _guardRepository.GetAllStudents();
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            var students = result.Data ?? new List<StudentModel>();
+            if (students.Count == 0)
+                return NotFound(new { status = 404, message = "No students found." });
+
+            return Ok(new
             {
-                List<dynamic> students = await _guardRepository.GetAllStudents();
-
-                if (students == null || students.Count == 0)
-                    return NotFound(new { status = 0, message = "No students found." });
-
-                return Ok(new
+                status = 200,
+                message = "Success",
+                total = students.Count,
+                data = students.Select(s => new
                 {
-                    status = 1,
-                    message = "Success",
-                    total = students.Count,
-                    data = students.Select(s => new
-                    {
-                        student_no = s.StudentNo,
-                        name = $"{s.FirstName} {s.LastName}",
-                        course = s.Course,
-                        year = s.Year
-                    })
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                    student_no = s.StudentNo,
+                    name = $"{s.FirstName} {s.LastName}",
+                    course = s.Course,
+                    year = s.Year
+                })
+            });
         }
 
         // GET api/guard/students/exist?studentNo=xxx
-        // Returns a specific student by their StudentNo
         [HttpGet("students/exist")]
         public async Task<IActionResult> GetStudentByStudentNo([FromQuery] string studentNo)
         {
             if (string.IsNullOrWhiteSpace(studentNo))
-                return BadRequest(new { status = 0, message = "Student number is required." });
+                return BadRequest(new { status = 400, message = "Student number is required." });
 
             studentNo = studentNo.Trim().ToUpper();
 
-            try
-            {
-                dynamic student = await _guardRepository.GetStudentByStudentNo(studentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
+            var result = await _guardRepository.GetStudentByStudentNo(studentNo);
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
 
-                return Ok(new
-                {
-                    status = 1,
-                    message = "Success",
-                    data = new
-                    {
-                        student_no = student.StudentNo,
-                        name = $"{student.FirstName} {student.LastName}",
-                        course = student.Course,
-                        year = student.Year
-                    }
-                });
-            }
-            catch (Exception ex)
+            return Ok(new
             {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                status = 200,
+                message = "Success",
+                data = new
+                {
+                    student_no = result.Data.StudentNo,
+                    name = $"{result.Data.FirstName} {result.Data.LastName}",
+                    course = result.Data.Course,
+                    year = result.Data.Year
+                }
+            });
         }
     }
 }

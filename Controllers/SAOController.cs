@@ -18,13 +18,8 @@ namespace StudentViolations.API.Controllers
         private readonly IStudentRepository _studentRepository;
         private readonly ISAORepository _saoRepository;
 
-        // Valid gender values
         private static readonly string[] ValidGenders = { "male", "female" };
-
-        // Valid courses accepted by the school
-        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba" };
-
-        // Valid year levels
+        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba", "bsit", "bscs"};
         private static readonly string[] ValidYears = { "1", "2", "3", "4" };
 
         public SAOController(
@@ -38,489 +33,371 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/sao/violations
-        // Returns all violations with the matching student number and guard name attached
         [HttpGet("violations")]
         public async Task<IActionResult> GetAllViolations()
         {
-            try
+            var result = await _violationRepository.GetAllViolations();
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            var violations = result.Data ?? new List<ViolationModel>();
+            if (violations.Count == 0)
+                return NotFound(new { status = 404, message = "No violations found." });
+
+            var studentsResult = await _studentRepository.GetAllStudents();
+            var students = studentsResult.Data ?? new List<StudentModel>();
+
+            return Ok(new
             {
-                List<dynamic> violations = await _violationRepository.GetAllViolations();
-                List<dynamic> students = await _studentRepository.GetAllStudents();
-
-                if (violations == null || violations.Count == 0)
-                    return NotFound(new { status = 0, message = "No violations found." });
-
-                return Ok(new
+                status = 200,
+                message = "Success",
+                total = violations.Count,
+                data = violations.Select(v => new
                 {
-                    status = 1,
-                    message = "Success",
-                    total = violations.Count,
-                    data = violations.Select(v => new
-                    {
-                        id = v.ViolationID,
-                        student_no = students
-                            .FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
-                        type = v.ViolationName,
-                        details = v.Description,
-                        severity = v.Severity,
-                        date = v.ViolationDate,
-                        recorded_by = v.GuardName,
-                        status = v.Status
-                    })
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                    id = v.ViolationID,
+                    student_no = students.FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
+                    type = v.ViolationName,
+                    details = v.Description,
+                    severity = v.Severity,
+                    date = v.ViolationDate,
+                    recorded_by = v.GuardName,
+                    status = v.Status
+                })
+            });
         }
 
         // GET api/sao/violations/by-status/{status}
-        // Filters violations by status — accepts Pending, Approved, or Rejected
         [HttpGet("violations/by-status/{status}")]
         public async Task<IActionResult> GetViolationsByStatus(string status)
         {
             if (string.IsNullOrWhiteSpace(status))
-                return BadRequest(new { status = 0, message = "Status is required." });
+                return BadRequest(new { status = 400, message = "Status is required." });
 
             status = status.Trim().ToLower();
             var validStatuses = new[] { "pending", "approved", "rejected" };
             if (!validStatuses.Contains(status))
-                return BadRequest(new
+                return BadRequest(new { status = 400, message = "Status must be: pending, approved, or rejected." });
+
+            var result = await _violationRepository.GetAllViolations();
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            var studentsResult = await _studentRepository.GetAllStudents();
+            var students = studentsResult.Data ?? new List<StudentModel>();
+
+            var filtered = (result.Data ?? new List<ViolationModel>())
+                .Where(v => v.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
+                .Select(v => new
                 {
-                    status = 0,
-                    message = $"Invalid status '{status}'. Accepted values are: Pending, Approved, Rejected."
-                });
+                    id = v.ViolationID,
+                    student_no = students.FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
+                    type = v.ViolationName,
+                    details = v.Description,
+                    severity = v.Severity,
+                    date = v.ViolationDate,
+                    recorded_by = v.GuardName,
+                    status = v.Status
+                }).ToList();
 
-            try
-            {
-                List<dynamic> violations = await _violationRepository.GetAllViolations();
-                List<dynamic> students = await _studentRepository.GetAllStudents();
+            if (filtered.Count == 0)
+                return NotFound(new { status = 404, message = $"No {status} violations found." });
 
-                var filtered = violations
-                    .Where(v => ((string)v.Status).Equals(status, StringComparison.OrdinalIgnoreCase))
-                    .Select(v => new
-                    {
-                        id = v.ViolationID,
-                        student_no = students
-                            .FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
-                        type = v.ViolationName,
-                        details = v.Description,
-                        severity = v.Severity,
-                        date = v.ViolationDate,
-                        recorded_by = v.GuardName,
-                        status = v.Status
-                    }).ToList();
-
-                if (filtered.Count == 0)
-                    return NotFound(new { status = 0, message = $"No {status} violations found." });
-
-                return Ok(new { status = 1, message = "Success", total = filtered.Count, data = filtered });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+            return Ok(new { status = 200, message = "Success", total = filtered.Count, data = filtered });
         }
 
         // PUT api/sao/violations/{id}/approve
-        // Changes a violation's status to Approved
         [HttpPut("violations/{id}/approve")]
         public async Task<IActionResult> ApproveViolation(int id)
         {
             if (id <= 0)
-                return BadRequest(new { status = 0, message = "Violation ID must be a positive number." });
+                return BadRequest(new { status = 400, message = "Violation ID must be a positive number." });
 
-            try
-            {
-                dynamic violation = await _violationRepository.GetViolationById(id);
-                if (violation == null)
-                    return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
+            var violationResult = await _violationRepository.GetViolationById(id);
+            if (violationResult.Status != 200)
+                return StatusCode(violationResult.Status, violationResult);
 
-                if (((string)violation.Status).Equals("Approved", StringComparison.OrdinalIgnoreCase))
-                    return BadRequest(new { status = 0, message = "Violation is already approved." });
+            if (violationResult.Data.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { status = 400, message = "Violation is already approved." });
 
-                await _violationRepository.UpdateViolationStatus(id, "Approved");
-                return Ok(new { status = 1, message = "Violation approved successfully." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+            var result = await _violationRepository.UpdateViolationStatus(id, "Approved");
+            return StatusCode(result.Status, result);
         }
 
         // PUT api/sao/violations/{id}/reject
-        // Changes a violation's status to Rejected
         [HttpPut("violations/{id}/reject")]
         public async Task<IActionResult> RejectViolation(int id)
         {
             if (id <= 0)
-                return BadRequest(new { status = 0, message = "Violation ID must be a positive number." });
+                return BadRequest(new { status = 400, message = "Violation ID must be a positive number." });
 
-            try
-            {
-                dynamic violation = await _violationRepository.GetViolationById(id);
-                if (violation == null)
-                    return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
+            var violationResult = await _violationRepository.GetViolationById(id);
+            if (violationResult.Status != 200)
+                return StatusCode(violationResult.Status, violationResult);
 
-                if (((string)violation.Status).Equals("Rejected", StringComparison.OrdinalIgnoreCase))
-                    return BadRequest(new { status = 0, message = "Violation is already rejected." });
+            if (violationResult.Data.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { status = 400, message = "Violation is already rejected." });
 
-                await _violationRepository.UpdateViolationStatus(id, "Rejected");
-                return Ok(new { status = 1, message = "Violation rejected successfully." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+            var result = await _violationRepository.UpdateViolationStatus(id, "Rejected");
+            return StatusCode(result.Status, result);
         }
 
         // DELETE api/sao/violations/{id}
-        // Permanently removes a violation and returns a deletion history record in the response
         [HttpDelete("violations/{id}")]
         public async Task<IActionResult> DeleteViolation(int id)
         {
             if (id <= 0)
-                return BadRequest(new { status = 0, message = "Violation ID must be a positive number." });
+                return BadRequest(new { status = 400, message = "Violation ID must be a positive number." });
 
-            try
+            var violationResult = await _violationRepository.GetViolationById(id);
+            if (violationResult.Status != 200)
+                return StatusCode(violationResult.Status, violationResult);
+
+            // Capture deletion history before deleting
+            var deletionRecord = new
             {
-                dynamic violation = await _violationRepository.GetViolationById(id);
-                if (violation == null)
-                    return NotFound(new { status = 0, message = $"Violation with ID {id} not found." });
+                deleted_violation_id = violationResult.Data.ViolationID,
+                student_id = violationResult.Data.StudentId,
+                type = violationResult.Data.ViolationName,
+                details = violationResult.Data.Description,
+                severity = violationResult.Data.Severity,
+                original_date = violationResult.Data.ViolationDate,
+                original_status = violationResult.Data.Status,
+                recorded_by = violationResult.Data.GuardName,
+                deleted_by = User.FindFirstValue(ClaimTypes.Name) ?? "SAO",
+                deleted_at = DateTime.UtcNow
+            };
 
-                // Capture violation details before deleting — returned as the deletion history record
-                var deletionRecord = new
-                {
-                    deleted_violation_id = violation.ViolationID,
-                    student_id = violation.StudentId,
-                    type = violation.ViolationName,
-                    details = violation.Description,
-                    severity = violation.Severity,
-                    original_date = violation.ViolationDate,
-                    original_status = violation.Status,
-                    recorded_by = violation.GuardName,
-                    deleted_by = User.FindFirstValue(ClaimTypes.Name) ?? "SAO",
-                    deleted_at = DateTime.UtcNow
-                };
+            var result = await _violationRepository.DeleteViolation(id);
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
 
-                await _violationRepository.DeleteViolation(id);
-
-                return Ok(new
-                {
-                    status = 1,
-                    message = "Violation deleted successfully.",
-                    deletion_history = deletionRecord
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+            return Ok(new { status = 200, message = "Violation deleted successfully.", deletion_history = deletionRecord });
         }
 
         // GET api/sao/violations/summary
-        // Returns total counts grouped by status, severity, and type
-        // Violation types are grouped case-insensitively — "No ID" and "no id" count as one
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetSummary()
         {
-            try
+            var result = await _violationRepository.GetAllViolations();
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            var violations = result.Data ?? new List<ViolationModel>();
+            if (violations.Count == 0)
+                return NotFound(new { status = 404, message = "No violations found." });
+
+            return Ok(new
             {
-                List<dynamic> violations = await _violationRepository.GetAllViolations();
-
-                if (violations == null || violations.Count == 0)
-                    return NotFound(new { status = 0, message = "No violations found." });
-
-                return Ok(new
+                status = 200,
+                message = "Success",
+                data = new
                 {
-                    status = 1,
-                    message = "Success",
-                    data = new
-                    {
-                        total = violations.Count,
-                        pending = violations.Count(v => ((string)v.Status).Equals("Pending", StringComparison.OrdinalIgnoreCase)),
-                        approved = violations.Count(v => ((string)v.Status).Equals("Approved", StringComparison.OrdinalIgnoreCase)),
-                        rejected = violations.Count(v => ((string)v.Status).Equals("Rejected", StringComparison.OrdinalIgnoreCase)),
-                        by_severity = violations
-                            .GroupBy(v => ((string)v.Severity).ToLower())
-                            .Select(g => new { severity = g.Key, count = g.Count() }),
-                        // Case-insensitive grouping — "No ID" and "no id" are treated as the same violation type
-                        by_type = violations
-                            .GroupBy(v => ((string)v.ViolationName).ToLower())
-                            .Select(g => new
-                            {
-                                type = g.First().ViolationName,
-                                count = g.Count()
-                            })
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                    total = violations.Count,
+                    pending = violations.Count(v => v.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase)),
+                    approved = violations.Count(v => v.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase)),
+                    rejected = violations.Count(v => v.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase)),
+                    by_severity = violations
+                        .GroupBy(v => v.Severity.ToLower())
+                        .Select(g => new { severity = g.Key, count = g.Count() }),
+                    by_type = violations
+                        .GroupBy(v => v.ViolationName.ToLower())
+                        .Select(g => new { type = g.First().ViolationName, count = g.Count() })
+                }
+            });
         }
 
         // GET api/sao/students/{studentNo}/report
-        // Returns full profile and complete violation history of a specific student
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
         {
             if (string.IsNullOrWhiteSpace(studentNo))
-                return BadRequest(new { status = 0, message = "Student number is required." });
+                return BadRequest(new { status = 400, message = "Student number is required." });
 
             studentNo = studentNo.Trim().ToUpper();
 
-            try
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, studentResult);
+
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+
+            return Ok(new
             {
-                dynamic student = await _studentRepository.GetStudentByStudentId(studentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
-
-                List<dynamic> violations = await _violationRepository
-                    .GetViolationsByStudentId((string)student.StudentNo);
-
-                return Ok(new
+                status = 200,
+                message = "Success",
+                data = new
                 {
-                    status = 1,
-                    message = "Success",
-                    data = new
+                    student_no = studentResult.Data.StudentNo,
+                    name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
+                    email = studentResult.Data.Email,
+                    contact_number = studentResult.Data.ContactNumber,
+                    gender = studentResult.Data.Gender,
+                    address = studentResult.Data.Address,
+                    date_of_birth = studentResult.Data.DateOfBirth,
+                    course = studentResult.Data.Course,
+                    year = studentResult.Data.Year,
+                    violation_count = violations.Count,
+                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
+                    violations = violations.Select(v => new
                     {
-                        student_no = student.StudentNo,
-                        name = $"{student.FirstName} {student.LastName}",
-                        email = student.Email,
-                        contact_number = student.ContactNumber,
-                        gender = student.Gender,
-                        address = student.Address,
-                        date_of_birth = student.DateOfBirth,
-                        course = student.Course,
-                        year = student.Year,
-                        violation_count = violations.Count,
-                        warning_level = ViolationHelper.GetWarningLevel(violations.Count),
-                        violations = violations.Select(v => new
-                        {
-                            id = v.ViolationID,
-                            type = v.ViolationName,
-                            details = v.Description,
-                            severity = v.Severity,
-                            date = v.ViolationDate,
-                            status = v.Status,
-                            recorded_by = v.GuardName
-                        })
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                        id = v.ViolationID,
+                        type = v.ViolationName,
+                        details = v.Description,
+                        severity = v.Severity,
+                        date = v.ViolationDate,
+                        status = v.Status,
+                        recorded_by = v.GuardName
+                    })
+                }
+            });
         }
 
         // GET api/sao/users
-        // Returns all registered users in the system regardless of role
         [HttpGet("users")]
         public async Task<IActionResult> GetAllUsers()
         {
-            try
+            var result = await _saoRepository.GetAllUsers();
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            var users = result.Data ?? new List<UserModel>();
+            if (users.Count == 0)
+                return NotFound(new { status = 404, message = "No users found." });
+
+            return Ok(new
             {
-                List<dynamic> users = await _saoRepository.GetAllUsers();
-
-                if (users == null || users.Count == 0)
-                    return NotFound(new { status = 0, message = "No users found." });
-
-                return Ok(new
+                status = 200,
+                message = "Success",
+                total = users.Count,
+                data = users.Select(u => new
                 {
-                    status = 1,
-                    message = "Users retrieved successfully.",
-                    total = users.Count,
-                    data = users.Select(u => new
-                    {
-                        id = u.StudentID,
-                        username = u.Username,
-                        name = $"{u.FirstName} {u.LastName}",
-                        email = u.Email,
-                        role = u.Role,
-                        gender = u.Gender,
-                        course = u.Course,
-                        year = u.Year,
-                        contact_number = u.ContactNumber,
-                        registration_date = u.RegistrationDate
-                    })
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                    id = u.StudentID,
+                    username = u.Username,
+                    name = $"{u.FirstName} {u.LastName}",
+                    email = u.Email,
+                    role = u.Role,
+                    gender = u.Gender,
+                    course = u.Course,
+                    year = u.Year,
+                    contact_number = u.ContactNumber,
+                    registration_date = u.RegistrationDate
+                })
+            });
         }
 
         // GET api/sao/users/{id}
-        // Returns one user by ID — call this first to see current values before updating
         [HttpGet("users/{id}")]
         public async Task<IActionResult> GetUserById(int id)
         {
             if (id <= 0)
-                return BadRequest(new { status = 0, message = "User ID must be a positive number." });
+                return BadRequest(new { status = 400, message = "User ID must be a positive number." });
 
-            try
+            var result = await _saoRepository.GetUserById(id);
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            return Ok(new
             {
-                dynamic user = await _saoRepository.GetUserById(id);
-                if (user == null)
-                    return NotFound(new { status = 0, message = $"User with ID {id} not found." });
-
-                return Ok(new
+                status = 200,
+                message = "Success. Copy the fields below into the update request and change only what you need.",
+                data = new
                 {
-                    status = 1,
-                    message = "Success. Copy the fields below into the update request body and change only what you need.",
-                    data = new
-                    {
-                        id = user.StudentID,
-                        username = user.Username,
-                        first_name = user.FirstName,
-                        last_name = user.LastName,
-                        email = user.Email,
-                        role = user.Role,
-                        gender = user.Gender,
-                        course = user.Course,
-                        year = user.Year,
-                        address = user.Address,
-                        contact_number = user.ContactNumber
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                    id = result.Data.StudentID,
+                    username = result.Data.Username,
+                    first_name = result.Data.FirstName,
+                    last_name = result.Data.LastName,
+                    email = result.Data.Email,
+                    role = result.Data.Role,
+                    gender = result.Data.Gender,
+                    course = result.Data.Course,
+                    year = result.Data.Year,
+                    address = result.Data.Address,
+                    contact_number = result.Data.ContactNumber
+                }
+            });
         }
 
         // PUT api/sao/users/{id}
-        // Updates a user's info — only send the fields you want to change, the rest stay the same
-        // Tip: call GET /api/sao/users/{id} first to see current values
         [HttpPut("users/{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserModel request)
         {
             if (id <= 0)
-                return BadRequest(new { status = 0, message = "User ID must be a positive number." });
-
+                return BadRequest(new { status = 400, message = "User ID must be a positive number." });
             if (request == null)
-                return BadRequest(new { status = 0, message = "Request body is required." });
+                return BadRequest(new { status = 400, message = "Request body is required." });
 
-            // Validate firstName if provided — letters only
-            if (request.FirstName != null)
+            if (request.FirstName != null && !Regex.IsMatch(request.FirstName.Trim(), @"^[a-zA-Z\s\-]+$"))
+                return BadRequest(new { status = 400, message = "First name must contain letters only." });
+            if (request.LastName != null && !Regex.IsMatch(request.LastName.Trim(), @"^[a-zA-Z\s\-]+$"))
+                return BadRequest(new { status = 400, message = "Last name must contain letters only." });
+            if (request.Email != null && !Regex.IsMatch(request.Email.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                return BadRequest(new { status = 400, message = "Invalid email format." });
+            if (request.ContactNumber != null && !Regex.IsMatch(request.ContactNumber.Trim(), @"^09\d{9}$"))
+                return BadRequest(new { status = 400, message = "Contact number must be 11 digits starting with 09." });
+            if (request.Gender != null && !ValidGenders.Contains(request.Gender.Trim().ToLower()))
+                return BadRequest(new { status = 400, message = "Gender must be 'male' or 'female'." });
+            if (request.Course != null && !ValidCourses.Contains(request.Course.Trim().ToLower()))
+                return BadRequest(new { status = 400, message = "Invalid course. Accepted: BSIT, BSHM, BSBA, BSA, BSCS." });
+            if (request.Year != null && !ValidYears.Contains(request.Year.Trim()))
+                return BadRequest(new { status = 400, message = "Invalid year. Accepted: 1, 2, 3, 4." });
+
+            // Get current user data
+            var userResult = await _saoRepository.GetUserById(id);
+            if (userResult.Status != 200)
+                return StatusCode(userResult.Status, userResult);
+
+            // Build updated UserModel — null fields keep existing values
+            var updated = new UserModel
             {
-                if (request.FirstName.Trim().Length < 2)
-                    return BadRequest(new { status = 0, message = "First name must be at least 2 characters." });
-                if (!Regex.IsMatch(request.FirstName.Trim(), @"^[a-zA-Z\s\-]+$"))
-                    return BadRequest(new { status = 0, message = "First name must contain letters only." });
-            }
+                StudentID = userResult.Data.StudentID,
+                FirstName = request.FirstName?.Trim() ?? userResult.Data.FirstName,
+                LastName = request.LastName?.Trim() ?? userResult.Data.LastName,
+                Email = request.Email?.Trim().ToLower() ?? userResult.Data.Email,
+                ContactNumber = request.ContactNumber?.Trim() ?? userResult.Data.ContactNumber,
+                Gender = request.Gender?.Trim().ToLower() ?? userResult.Data.Gender,
+                Address = request.Address?.Trim() ?? userResult.Data.Address,
+                Course = request.Course?.Trim().ToUpper() ?? userResult.Data.Course,
+                Year = request.Year?.Trim() ?? userResult.Data.Year,
+                Role = userResult.Data.Role // Role never changes
+            };
 
-            // Validate lastName if provided — letters only
-            if (request.LastName != null)
+            var result = await _saoRepository.UpdateUser(updated);
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            return Ok(new
             {
-                if (request.LastName.Trim().Length < 2)
-                    return BadRequest(new { status = 0, message = "Last name must be at least 2 characters." });
-                if (!Regex.IsMatch(request.LastName.Trim(), @"^[a-zA-Z\s\-]+$"))
-                    return BadRequest(new { status = 0, message = "Last name must contain letters only." });
-            }
-
-            // Validate email if provided
-            if (request.Email != null &&
-                !Regex.IsMatch(request.Email.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-                return BadRequest(new { status = 0, message = "Invalid email format." });
-
-            // Validate contact number if provided — must be 11 digits starting with 09
-            if (request.ContactNumber != null &&
-                !Regex.IsMatch(request.ContactNumber.Trim(), @"^09\d{9}$"))
-                return BadRequest(new { status = 0, message = "Contact number must be 11 digits and start with 09 (e.g. 09123456789)." });
-
-            // Validate gender if provided
-            if (request.Gender != null &&
-                !ValidGenders.Contains(request.Gender.Trim().ToLower()))
-                return BadRequest(new { status = 0, message = "Gender must be either 'male' or 'female'." });
-
-            // Validate course if provided
-            if (request.Course != null &&
-                !ValidCourses.Contains(request.Course.Trim().ToLower()))
-                return BadRequest(new { status = 0, message = "Invalid course. Accepted values are: BSIT, BSHM, BSBA." });
-
-            // Validate year if provided
-            if (request.Year != null &&
-                !ValidYears.Contains(request.Year.Trim()))
-                return BadRequest(new { status = 0, message = "Invalid year. Accepted values are: 1, 2, 3, 4." });
-
-            try
-            {
-                // Fetch current data — fields not in request body keep their existing values
-                dynamic user = await _saoRepository.GetUserById(id);
-                if (user == null)
-                    return NotFound(new { status = 0, message = $"User with ID {id} not found." });
-
-                var updated = new
+                status = 200,
+                message = "User updated successfully.",
+                data = new
                 {
-                    Id = (int)user.StudentID,
-                    FirstName = request.FirstName?.Trim() ?? (string)user.FirstName,
-                    LastName = request.LastName?.Trim() ?? (string)user.LastName,
-                    Email = request.Email?.Trim().ToLower() ?? (string)user.Email,
-                    ContactNumber = request.ContactNumber?.Trim() ?? (string)user.ContactNumber,
-                    Gender = request.Gender?.Trim().ToLower() ?? (string)user.Gender,
-                    Address = request.Address?.Trim() ?? (string)user.Address,
-                    Course = request.Course?.Trim().ToUpper() ?? (string)user.Course,
-                    Year = request.Year?.Trim() ?? (string)user.Year,
-                    // Role is never changed — always keep the existing role
-                    Role = (string)user.Role
-                };
-
-                await _saoRepository.UpdateUser(updated);
-
-                return Ok(new
-                {
-                    status = 1,
-                    message = "User updated successfully.",
-                    data = new
-                    {
-                        id = updated.Id,
-                        name = $"{updated.FirstName} {updated.LastName}",
-                        email = updated.Email,
-                        role = updated.Role,
-                        course = updated.Course,
-                        year = updated.Year
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                    id = updated.StudentID,
+                    name = $"{updated.FirstName} {updated.LastName}",
+                    email = updated.Email,
+                    role = updated.Role,
+                    course = updated.Course,
+                    year = updated.Year
+                }
+            });
         }
 
         // DELETE api/sao/users/{id}
-        // Permanently removes a user from the system
         [HttpDelete("users/{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
             if (id <= 0)
-                return BadRequest(new { status = 0, message = "User ID must be a positive number." });
+                return BadRequest(new { status = 400, message = "User ID must be a positive number." });
 
-            try
-            {
-                dynamic user = await _saoRepository.GetUserById(id);
-                if (user == null)
-                    return NotFound(new { status = 0, message = $"User with ID {id} not found." });
+            var userResult = await _saoRepository.GetUserById(id);
+            if (userResult.Status != 200)
+                return StatusCode(userResult.Status, userResult);
 
-                await _saoRepository.DeleteUser(id);
+            var result = await _saoRepository.DeleteUser(id);
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
 
-                return Ok(new
-                {
-                    status = 1,
-                    message = $"User {user.Username} deleted successfully."
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+            return Ok(new { status = 200, message = $"User {userResult.Data.Username} deleted successfully." });
         }
     }
 }

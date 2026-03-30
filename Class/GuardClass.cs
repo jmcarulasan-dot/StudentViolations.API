@@ -1,11 +1,12 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
 using StudentViolations.API.IRepository;
+using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
 using System.Data;
 
 namespace StudentViolations.API.Class
 {
-    // Handles all guard-related database operations
     public class GuardClass : IGuardRepository
     {
         private readonly string _connectionString;
@@ -15,183 +16,167 @@ namespace StudentViolations.API.Class
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
 
-        // Gets all violations between two dates
-        public async Task<List<dynamic>> GetViolationsInDateRange(DateTime startDate, DateTime endDate)
+        public async Task<ServiceResponse<List<ViolationModel>>> GetViolationsInDateRange(DateTime startDate, DateTime endDate)
         {
+            var service = new ServiceResponse<List<ViolationModel>>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETBYDATE");
-                param.Add("StartDate", startDate);
-                param.Add("EndDate", endDate);
+                param.Add("@statementType", "GETBYDATE");
+                param.Add("@StartDate", startDate);
+                param.Add("@EndDate", endDate);
 
-                var result = await connection.QueryAsync(
-                    "SP_GUARD", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result.ToList();
+                var result = await connection.QueryAsync<ViolationModel>("SP_GUARD", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = result.ToList();
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetViolationsInDateRange error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetViolationsInDateRange error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Gets all violations for a specific student using their StudentNo
-        public async Task<List<dynamic>> GetViolationsByStudentId(string studentNo)
+        public async Task<ServiceResponse<List<ViolationModel>>> GetViolationsByStudentId(string studentNo)
         {
+            var service = new ServiceResponse<List<ViolationModel>>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETBYSTUDENT");
-                param.Add("StudentNo", studentNo);
-
-                var result = await connection.QueryAsync(
-                    "SP_GUARD", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result.ToList();
+                param.Add("@statementType", "GETBYSTUDENT");
+                param.Add("@StudentNo", studentNo);
+                var result = await connection.QueryAsync<ViolationModel>("SP_GUARD", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = result.ToList();
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetViolationsByStudentId error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetViolationsByStudentId error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Finds a student by scanning their QR code (StudentNo)
-        public async Task<dynamic?> GetStudentByQrCode(string qrCode)
+        public async Task<ServiceResponse<StudentModel>> GetStudentByQrCode(string qrCode)
         {
+            var service = new ServiceResponse<StudentModel>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETSTUDENTBYQR");
-                param.Add("StudentNo", qrCode);
-
-                var result = await connection.QueryFirstOrDefaultAsync(
-                    "SP_GUARD", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result;
+                param.Add("@statementType", "GETSTUDENTBYQR");
+                param.Add("@StudentNo", qrCode);
+                var result = await connection.QueryFirstOrDefaultAsync<StudentModel>("SP_GUARD", param, commandType: CommandType.StoredProcedure);
+                if (result == null)
+                {
+                    service.Status = 404;
+                    service.Message = "Student not found.";
+                    return service;
+                }
+                service.Status = 200;
+                service.Data = result;
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetStudentByQrCode error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetStudentByQrCode error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Saves a new violation record to the database
-        //Validating a violation for student
-        public async Task RecordViolation(dynamic violation)
+        public async Task<ServiceResponse<bool>> RecordViolation(ViolationModel violation)
         {
+            var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "RECORDVIOLATION");
-                param.Add("StudentId", violation.StudentId);
-                param.Add("ViolationName", violation.Type);
-                param.Add("Description", violation.Details);
-                param.Add("Severity", violation.Severity);
-                param.Add("GuardId", violation.GuardId);
-
-                var result = await connection.QueryAsync(
-                    "SP_GUARD", param,
-                    commandType: CommandType.StoredProcedure);
-
+                param.Add("@statementType", "RECORDVIOLATION");
+                param.Add("@StudentId", violation.StudentId);
+                param.Add("@ViolationName", violation.ViolationName);
+                param.Add("@Description", violation.Description);
+                param.Add("@Severity", violation.Severity);
+                param.Add("@GuardId", violation.GuardId);
+                var result = await connection.QueryAsync("SP_GUARD", param, commandType: CommandType.StoredProcedure);
                 var errorRow = result.FirstOrDefault();
                 if (errorRow != null && errorRow.ErrorMessage != null)
                 {
-                    throw new Exception((string)errorRow.ErrorMessage);
+                    service.Status = 400;
+                    service.Message = (string)errorRow.ErrorMessage;
+                    return service;
                 }
+                service.Status = 200;
+                service.Message = "Violation recorded successfully.";
+                service.Data = true;
             }
             catch (Exception ex)
             {
-                throw new Exception($"RecordViolation error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"RecordViolation error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Gets all registered students
-        public async Task<List<dynamic>> GetAllStudents()
+        public async Task<ServiceResponse<List<StudentModel>>> GetAllStudents()
         {
+            var service = new ServiceResponse<List<StudentModel>>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETALLSTUDENTS");
-
-                var result = await connection.QueryAsync(
-                    "SP_GUARD", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result.ToList();
+                param.Add("@statementType", "GETALLSTUDENTS");
+                var result = await connection.QueryAsync<StudentModel>("SP_GUARD", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = result.ToList();
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetAllStudents error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetAllStudents error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Gets a specific student by their StudentNo
-        public async Task<dynamic?> GetStudentByStudentNo(string studentNo)
+        public async Task<ServiceResponse<StudentModel>> GetStudentByStudentNo(string studentNo)
         {
+            var service = new ServiceResponse<StudentModel>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETSTUDENTBYNO");
-                param.Add("StudentNo", studentNo);
-
-                var result = await connection.QueryFirstOrDefaultAsync(
-                    "SP_GUARD", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result;
+                param.Add("@statementType", "GETSTUDENTBYNO");
+                param.Add("@StudentNo", studentNo);
+                var result = await connection.QueryFirstOrDefaultAsync<StudentModel>("SP_GUARD", param, commandType: CommandType.StoredProcedure);
+                if (result == null)
+                {
+                    service.Status = 404;
+                    service.Message = "Student not found.";
+                    return service;
+                }
+                service.Status = 200;
+                service.Data = result;
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetStudentByStudentNo error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetStudentByStudentNo error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
-
     }
-
 }

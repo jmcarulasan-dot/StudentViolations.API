@@ -1,76 +1,69 @@
 ﻿using Dapper;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Microsoft.Data.SqlClient;
-using StudentViolations.API.IRepository;
+using Microsoft.IdentityModel.Tokens;
 using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
+using StudentViolations.API.IRepository;
 using System.Data;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace StudentViolations.API.Class
 {
-    // This class handles login and user existence check operations.
     public class LoginClass : ILoginRepository
     {
         private readonly string _connectionString;
+        private readonly IConfiguration _configuration;
 
         public LoginClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
+            _configuration = configuration;
         }
 
-        // Handles user login by verifying credentials against the database.
-        public async Task<ServiceResponse<object>> GetLogin(string username, string password)
+        public async Task<ServiceResponse<UserModel>> Authenticate(string username, string password)
         {
-            ServiceResponse<object> service = new ServiceResponse<object>();
+            var service = new ServiceResponse<UserModel>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
 
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETLOGIN");
-                param.Add("username", username);
-                param.Add("email", "");
+                param.Add("@statementType", "GETLOGIN");
+                param.Add("@username", username);
+                param.Add("@email", "");
 
-                var result = (await connection.QueryAsync(
-                    "SP_STUDENT_GETUSERLOGIN",
-                    param,
+                var result = (await connection.QueryAsync<UserModel>(
+                    "SP_STUDENT_GETUSERLOGIN", param,
                     commandType: CommandType.StoredProcedure)).FirstOrDefault();
 
-                if (result != null)
+                if (result == null)
                 {
-                    string salt = result.Salt;
-                    string hashedPassword = HashPassword(password, salt);
-
-                    if (hashedPassword == result.PasswordHash)
-                    {
-                        service.Status = 1;
-                        service.Message = "Login successful.";
-                        service.Data = new
-                        {
-                            id = result.StudentID.ToString(),
-                            username = result.Username,
-                            name = $"{result.FirstName} {result.LastName}",
-                            role = result.Role,
-                            email = result.Email,
-                            contactNumber = result.ContactNumber,
-                            studentNo = result.StudentNo ?? ""
-                        };
-                    }
-                    else
-                    {
-                        service.Status = 0;
-                        service.Message = "Invalid username or password.";
-                    }
-                }
-                else
-                {
-                    service.Status = 0;
+                    service.Status = 400;
                     service.Message = "Invalid username or password.";
+                    return service;
                 }
+
+                // Hash the entered password and compare with stored hash
+                string hashedPassword = HashPassword(password, result.Salt);
+                if (hashedPassword != result.PasswordHash)
+                {
+                    service.Status = 400;
+                    service.Message = "Invalid username or password.";
+                    return service;
+                }
+
+                service.Status = 200;
+                service.Message = "Login successful.";
+                service.Data = result;
+                service.Token = GenerateToken(result);
             }
             catch (Exception ex)
             {
-                service.Status = 0;
+                service.Status = 500;
                 service.Message = $"Login error: {ex.Message}";
             }
             finally
@@ -80,47 +73,77 @@ namespace StudentViolations.API.Class
             return service;
         }
 
-        // Checks if a username or email already exists in the system.
-        public async Task<bool> UserExists(string username, string email)
+        public async Task<ServiceResponse<bool>> UserExists(string username, string email)
         {
+            var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
 
                 DynamicParameters param = new DynamicParameters();
-                param.Add("username", username);
-                param.Add("email", email);
+                param.Add("@username", username);
+                param.Add("@email", email);
+                param.Add("@statementType", "USEREXISTS");
 
                 int result = await connection.QueryFirstOrDefaultAsync<int>(
-                    "SP_STUDENT_GETUSERLOGIN",
-                    param,
+                    "SP_STUDENT_GETUSERLOGIN", param,
                     commandType: CommandType.StoredProcedure);
 
-                return result > 0;
+                service.Status = 200;
+                service.Data = result > 0;
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                service.Status = 500;
+                service.Message = $"UserExists error: {ex.Message}";
             }
             finally
             {
                 connection.Close();
             }
+            return service;
         }
 
-        // Helper method to hash a password using PBKDF2.
+        // Generates JWT token from the logged in user
+        private string GenerateToken(UserModel user)
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Username),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.StudentID.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("name", $"{user.FirstName} {user.LastName}"),
+                new Claim("studentNo", user.StudentNo ?? "")
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: jwtSettings["Issuer"],
+                audience: jwtSettings["Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(Convert.ToDouble(jwtSettings["ExpiryInHours"])),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // PBKDF2 password hashing — same as original project
         private string HashPassword(string password, string salt)
         {
             byte[] saltBytes = Convert.FromBase64String(salt);
-            string hashed = Convert.ToBase64String(
-                KeyDerivation.Pbkdf2(
-                    password: password,
-                    salt: saltBytes,
-                    prf: KeyDerivationPrf.HMACSHA256,
-                    iterationCount: 10000,
-                    numBytesRequested: 256 / 8));
-            return hashed;
+            return Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                password: password,
+                salt: saltBytes,
+                prf: KeyDerivationPrf.HMACSHA256,
+                iterationCount: 10000,
+                numBytesRequested: 256 / 8));
         }
     }
 }

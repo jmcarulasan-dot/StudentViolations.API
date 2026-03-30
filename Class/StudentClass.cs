@@ -1,11 +1,12 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
 using StudentViolations.API.IRepository;
+using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
 using System.Data;
 
 namespace StudentViolations.API.Class
 {
-    // Handles all student data database operations
     public class StudentClass : IStudentRepository
     {
         private readonly string _connectionString;
@@ -15,96 +16,87 @@ namespace StudentViolations.API.Class
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
 
-        // Gets one student's data using their StudentNo
-        public async Task<dynamic?> GetStudentByStudentId(string studentNo)
+        public async Task<ServiceResponse<StudentModel>> GetStudentByStudentId(string studentNo)
         {
+            var service = new ServiceResponse<StudentModel>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETSTUDENT");
-                param.Add("StudentNo", studentNo);
-
-                // Returns one student record or null if not found
-                var result = await connection.QueryFirstOrDefaultAsync(
-                    "SP_STUDENT_DATA", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result;
+                param.Add("@statementType", "GETSTUDENT");
+                param.Add("@StudentNo", studentNo);
+                var result = await connection.QueryFirstOrDefaultAsync<StudentModel>("SP_STUDENT_DATA", param, commandType: CommandType.StoredProcedure);
+                if (result == null)
+                {
+                    service.Status = 404;
+                    service.Message = "Student not found.";
+                    return service;
+                }
+                service.Status = 200;
+                service.Data = result;
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetStudentByStudentId error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetStudentByStudentId error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Gets all students from the database
-        public async Task<List<dynamic>> GetAllStudents()
+        public async Task<ServiceResponse<List<StudentModel>>> GetAllStudents()
         {
+            var service = new ServiceResponse<List<StudentModel>>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETALLSTUDENTS");
-
-                // Call SP_STUDENT_DATA and return the full list of students
-                var result = await connection.QueryAsync(
-                    "SP_STUDENT_DATA", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result.ToList();
+                param.Add("@statementType", "GETALLSTUDENTS");
+                var result = await connection.QueryAsync<StudentModel>("SP_STUDENT_DATA", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = result.ToList();
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetAllStudents error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetAllStudents error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Updates an existing student's information
-        public async Task UpdateStudent(dynamic student)
+        public async Task<ServiceResponse<bool>> UpdateStudent(StudentModel student)
         {
+            var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "UPDATESTUDENT");
-                param.Add("StudentID", student.Id);
-                param.Add("FirstName", student.FirstName);
-                param.Add("LastName", student.LastName);
-                param.Add("Email", student.Email);
-                param.Add("ContactNumber", student.ContactNumber);
-                param.Add("Gender", student.Gender);
-                param.Add("Address", student.Address);
-                param.Add("Course", student.Course);
-                param.Add("Year", student.Year);
-
-                // Execute SP_STUDENT_DATA to update — no return value needed
-                await connection.ExecuteAsync(
-                    "SP_STUDENT_DATA", param,
-                    commandType: CommandType.StoredProcedure);
+                param.Add("@statementType", "UPDATESTUDENT");
+                param.Add("@StudentID", student.StudentID);
+                param.Add("@FirstName", student.FirstName);
+                param.Add("@LastName", student.LastName);
+                param.Add("@Email", student.Email);
+                param.Add("@ContactNumber", student.ContactNumber);
+                param.Add("@Gender", student.Gender);
+                param.Add("@Address", student.Address);
+                param.Add("@Course", student.Course);
+                param.Add("@Year", student.Year);
+                await connection.ExecuteAsync("SP_STUDENT_DATA", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Student updated successfully.";
+                service.Data = true;
             }
             catch (Exception ex)
             {
-                throw new Exception($"UpdateStudent error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"UpdateStudent error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
     }
 }

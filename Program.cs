@@ -3,12 +3,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using StudentViolations.API.Class;
 using StudentViolations.API.IRepository;
-
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS — allows Flutter and Blazor to call the API from any origin
+// CORS — allows Flutter, Blazor, PHP to call the API from any origin
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -19,7 +18,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// JWT Authentication — reads settings from appsettings.json under JwtSettings
+// JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
 
@@ -30,7 +29,6 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    // Validates the token on every request — checks issuer, audience, expiry, and signature
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -39,21 +37,19 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(secretKey))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
 });
 
-// Controllers — registers all controller classes in the project
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Swagger — sets up the browser testing UI with JWT support and custom group ordering
+// Swagger with JWT support
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "StudentViolations.API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "StudentViolations2.API", Version = "v1" });
 
-    // Forces Swagger to display endpoint groups in system flow order
+    // Display groups in system flow order
     c.OrderActionsBy(api => api.GroupName switch
     {
         "Registration" => "1",
@@ -72,7 +68,7 @@ builder.Services.AddSwaggerGen(c =>
         return new[] { api.ActionDescriptor.RouteValues["controller"] };
     });
 
-    // Adds the Bearer token input box in Swagger UI so we can test protected endpoints
+    // Bearer token input in Swagger UI
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -83,7 +79,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Enter your token only"
     });
 
-    // Applies the Bearer token requirement to all endpoints in Swagger
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -100,7 +95,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Dependency Injection — connects each interface to its class implementation
+// Dependency Injection — connects each interface to its implementation
 builder.Services.AddScoped<ILoginRepository, LoginClass>();
 builder.Services.AddScoped<IRegisterRepository, RegisterClass>();
 builder.Services.AddScoped<IStudentRepository, StudentClass>();
@@ -110,7 +105,7 @@ builder.Services.AddScoped<ISAORepository, SAOClass>();
 
 var app = builder.Build();
 
-// Middleware pipeline — order matters, each request passes through these in sequence
+// Middleware pipeline — order matters
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -119,7 +114,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
-app.UseAuthentication();
+app.UseAuthentication(); 
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

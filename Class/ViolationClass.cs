@@ -1,11 +1,12 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
 using StudentViolations.API.IRepository;
+using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
 using System.Data;
 
 namespace StudentViolations.API.Class
 {
-    // Handles all violation-related database operations
     public class ViolationClass : IViolationRepository
     {
         private readonly string _connectionString;
@@ -15,176 +16,155 @@ namespace StudentViolations.API.Class
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
 
-        // Saves a new violation record to the database
-        public async Task RecordViolation(dynamic violation)
+        public async Task<ServiceResponse<bool>> RecordViolation(ViolationModel violation)
         {
+            var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "RECORDVIOLATION");
-                param.Add("StudentId", violation.StudentId);
-                param.Add("ViolationName", violation.Type);
-                param.Add("Description", violation.Details);
-                param.Add("Severity", violation.Severity);
-                param.Add("GuardId", violation.GuardId);
-
-                // Execute SP_VIOLATION to insert — no return value needed
-                await connection.ExecuteAsync(
-                    "SP_VIOLATION", param,
-                    commandType: CommandType.StoredProcedure);
+                param.Add("@statementType", "RECORDVIOLATION");
+                param.Add("@StudentId", violation.StudentId);
+                param.Add("@ViolationName", violation.ViolationName);
+                param.Add("@Description", violation.Description);
+                param.Add("@Severity", violation.Severity);
+                param.Add("@GuardId", violation.GuardId);
+                await connection.ExecuteAsync("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Violation recorded successfully.";
+                service.Data = true;
             }
             catch (Exception ex)
             {
-                throw new Exception($"RecordViolation error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"RecordViolation error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Gets all violations for a specific student using their StudentNo
-        public async Task<List<dynamic>> GetViolationsByStudentId(string studentNo)
+        public async Task<ServiceResponse<List<ViolationModel>>> GetViolationsByStudentId(string studentNo)
         {
+            var service = new ServiceResponse<List<ViolationModel>>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETBYSTUDENT");
-                param.Add("StudentNo", studentNo);
-
-                // Call SP_VIOLATION and return all violations for this student
-                var result = await connection.QueryAsync(
-                    "SP_VIOLATION", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result.ToList();
+                param.Add("@statementType", "GETBYSTUDENT");
+                param.Add("@StudentNo", studentNo);
+                var result = await connection.QueryAsync<ViolationModel>("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = result.ToList();
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetViolationsByStudentId error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetViolationsByStudentId error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Gets every violation in the database
-        public async Task<List<dynamic>> GetAllViolations()
+        public async Task<ServiceResponse<List<ViolationModel>>> GetAllViolations()
         {
+            var service = new ServiceResponse<List<ViolationModel>>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETALL");
-
-                // Call SP_VIOLATION and return the full violations list
-                var result = await connection.QueryAsync(
-                    "SP_VIOLATION", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result.ToList();
+                param.Add("@statementType", "GETALL");
+                var result = await connection.QueryAsync<ViolationModel>("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = result.ToList();
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetAllViolations error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetAllViolations error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Gets one violation by its ID — returns null if not found
-        public async Task<dynamic?> GetViolationById(int id)
+        public async Task<ServiceResponse<ViolationModel>> GetViolationById(int id)
         {
+            var service = new ServiceResponse<ViolationModel>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETBYID");
-                param.Add("ViolationID", id);
-
-                // Returns one violation record or null if the ID does not exist
-                var result = await connection.QueryFirstOrDefaultAsync(
-                    "SP_VIOLATION", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result;
+                param.Add("@statementType", "GETBYID");
+                param.Add("@ViolationID", id);
+                var result = await connection.QueryFirstOrDefaultAsync<ViolationModel>("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                if (result == null)
+                {
+                    service.Status = 404;
+                    service.Message = "Violation not found.";
+                    return service;
+                }
+                service.Status = 200;
+                service.Data = result;
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetViolationById error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetViolationById error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Updates the status of a violation — Pending, Approved, or Rejected
-        public async Task UpdateViolationStatus(int id, string status)
+        public async Task<ServiceResponse<bool>> UpdateViolationStatus(int id, string status)
         {
+            var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "UPDATESTATUS");
-                param.Add("ViolationID", id);
-                param.Add("Status", status);
-
-                // Execute SP_VIOLATION to update the status — no return value needed
-                await connection.ExecuteAsync(
-                    "SP_VIOLATION", param,
-                    commandType: CommandType.StoredProcedure);
+                param.Add("@statementType", "UPDATESTATUS");
+                param.Add("@ViolationID", id);
+                param.Add("@Status", status);
+                await connection.ExecuteAsync("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = $"Violation {status.ToLower()} successfully.";
+                service.Data = true;
             }
             catch (Exception ex)
             {
-                throw new Exception($"UpdateViolationStatus error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"UpdateViolationStatus error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Permanently deletes a violation from the database by its ID
-        public async Task DeleteViolation(int id)
+        public async Task<ServiceResponse<bool>> DeleteViolation(int id)
         {
+            var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "DELETE");
-                param.Add("ViolationID", id);
-
-                // Execute SP_VIOLATION to delete — no return value needed
-                await connection.ExecuteAsync(
-                    "SP_VIOLATION", param,
-                    commandType: CommandType.StoredProcedure);
+                param.Add("@statementType", "DELETE");
+                param.Add("@ViolationID", id);
+                await connection.ExecuteAsync("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Violation deleted successfully.";
+                service.Data = true;
             }
             catch (Exception ex)
             {
-                throw new Exception($"DeleteViolation error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"DeleteViolation error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
     }
 }

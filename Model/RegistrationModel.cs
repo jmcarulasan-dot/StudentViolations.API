@@ -14,7 +14,7 @@
         public string Number { get; set; }
         public string Role { get; set; }
 
-        // Only required if the role is student
+        // Only required if role is student
         public string? Course { get; set; }
         public string? Year { get; set; }
         public string? StudentNo { get; set; }

@@ -1,11 +1,12 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
 using StudentViolations.API.IRepository;
+using StudentViolations.API.Model;
+using StudentViolations.API.Model.Response;
 using System.Data;
 
 namespace StudentViolations.API.Class
 {
-    // Handles all SAO (Student Affairs Office) database operations
     public class SAOClass : ISAORepository
     {
         private readonly string _connectionString;
@@ -15,120 +16,112 @@ namespace StudentViolations.API.Class
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
 
-        // Gets every user in the system regardless of role
-        public async Task<List<dynamic>> GetAllUsers()
+        public async Task<ServiceResponse<List<UserModel>>> GetAllUsers()
         {
+            var service = new ServiceResponse<List<UserModel>>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETALLUSERS");
-
-                var result = await connection.QueryAsync(
-                    "SP_SAO", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result.ToList();
+                param.Add("@statementType", "GETALLUSERS");
+                var result = await connection.QueryAsync<UserModel>("SP_SAO", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = result.ToList();
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetAllUsers error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetAllUsers error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Gets one user by their ID — returns null if not found
-        public async Task<dynamic?> GetUserById(int id)
+        public async Task<ServiceResponse<UserModel>> GetUserById(int id)
         {
+            var service = new ServiceResponse<UserModel>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "GETUSERBYID");
-                param.Add("StudentID", id);
-
-                var result = await connection.QueryFirstOrDefaultAsync(
-                    "SP_SAO", param,
-                    commandType: CommandType.StoredProcedure);
-
-                return result;
+                param.Add("@statementType", "GETUSERBYID");
+                param.Add("@StudentID", id);
+                var result = await connection.QueryFirstOrDefaultAsync<UserModel>("SP_SAO", param, commandType: CommandType.StoredProcedure);
+                if (result == null)
+                {
+                    service.Status = 404;
+                    service.Message = "User not found.";
+                    return service;
+                }
+                service.Status = 200;
+                service.Data = result;
             }
             catch (Exception ex)
             {
-                throw new Exception($"GetUserById error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"GetUserById error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Updates an existing user's information
-        public async Task UpdateUser(dynamic user)
+        public async Task<ServiceResponse<bool>> UpdateUser(UserModel user)
         {
+            var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "UPDATEUSER");
-                param.Add("StudentID", user.Id);
-                param.Add("FirstName", user.FirstName);
-                param.Add("LastName", user.LastName);
-                param.Add("Email", user.Email);
-                param.Add("ContactNumber", user.ContactNumber);
-                param.Add("Gender", user.Gender);
-                param.Add("Address", user.Address);
-                param.Add("Course", user.Course);
-                param.Add("Year", user.Year);
-                param.Add("Role", user.Role);
-
-                await connection.ExecuteAsync(
-                    "SP_SAO", param,
-                    commandType: CommandType.StoredProcedure);
+                param.Add("@statementType", "UPDATEUSER");
+                param.Add("@StudentID", user.StudentID);
+                param.Add("@FirstName", user.FirstName);
+                param.Add("@LastName", user.LastName);
+                param.Add("@Email", user.Email);
+                param.Add("@ContactNumber", user.ContactNumber);
+                param.Add("@Gender", user.Gender);
+                param.Add("@Address", user.Address);
+                param.Add("@Course", user.Course);
+                param.Add("@Year", user.Year);
+                param.Add("@Role", user.Role);
+                await connection.ExecuteAsync("SP_SAO", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "User updated successfully.";
+                service.Data = true;
             }
             catch (Exception ex)
             {
-                throw new Exception($"UpdateUser error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"UpdateUser error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
 
-        // Permanently deletes a user from the database by their ID
-        public async Task DeleteUser(int id)
+        public async Task<ServiceResponse<bool>> DeleteUser(int id)
         {
+            var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
-                param.Add("statementType", "DELETEUSER");
-                param.Add("StudentID", id);
-
-                await connection.ExecuteAsync(
-                    "SP_SAO", param,
-                    commandType: CommandType.StoredProcedure);
+                param.Add("@statementType", "DELETEUSER");
+                param.Add("@StudentID", id);
+                await connection.ExecuteAsync("SP_SAO", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "User deleted successfully.";
+                service.Data = true;
             }
             catch (Exception ex)
             {
-                throw new Exception($"DeleteUser error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"DeleteUser error: {ex.Message}";
             }
-            finally
-            {
-                connection.Close();
-            }
+            finally { connection.Close(); }
+            return service;
         }
     }
 }

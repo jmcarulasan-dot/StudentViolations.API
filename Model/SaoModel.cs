@@ -9,8 +9,6 @@
         public string? ContactNumber { get; set; }
         public string? Gender { get; set; }
         public string? Address { get; set; }
-
-        // Only applies to students
         public string? Course { get; set; }
         public string? Year { get; set; }
     }

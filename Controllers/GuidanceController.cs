@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.Helpers;
 using StudentViolations.API.IRepository;
+using StudentViolations.API.Model;
 
 namespace StudentViolations.API.Controllers
 {
@@ -22,186 +23,157 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guidance/students
-        // Returns all students with their violation count and warning level
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
         {
-            try
+            var result = await _studentRepository.GetAllStudents();
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            var students = result.Data ?? new List<StudentModel>();
+            if (students.Count == 0)
+                return NotFound(new { status = 404, message = "No students found." });
+
+            // Get violations for each student to calculate warning level
+            var studentList = new List<object>();
+            foreach (var student in students)
             {
-                List<dynamic> students = await _studentRepository.GetAllStudents();
+                var violationsResult = await _violationRepository.GetViolationsByStudentId(student.StudentNo);
+                var violations = violationsResult.Data ?? new List<ViolationModel>();
 
-                if (students == null || students.Count == 0)
-                    return NotFound(new { status = 0, message = "No students found." });
-
-                List<object> result = new List<object>();
-
-                foreach (dynamic student in students)
+                studentList.Add(new
                 {
-                    List<dynamic> violations = await _violationRepository
-                        .GetViolationsByStudentId((string)student.StudentNo);
-
-                    result.Add(new
-                    {
-                        student_no = student.StudentNo,
-                        name = $"{student.FirstName} {student.LastName}",
-                        email = student.Email,
-                        contact_number = student.ContactNumber,
-                        gender = student.Gender,
-                        violation_count = violations.Count,
-                        warning_level = ViolationHelper.GetWarningLevel(violations.Count)
-                    });
-                }
-
-                return Ok(new { status = 1, message = "Success", total = result.Count, data = result });
+                    student_no = student.StudentNo,
+                    name = $"{student.FirstName} {student.LastName}",
+                    email = student.Email,
+                    contact_number = student.ContactNumber,
+                    gender = student.Gender,
+                    violation_count = violations.Count,
+                    warning_level = ViolationHelper.GetWarningLevel(violations.Count)
+                });
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+
+            return Ok(new { status = 200, message = "Success", total = studentList.Count, data = studentList });
         }
 
         // GET api/guidance/students/{studentNo}/report
-        // Returns full profile and all violations of a specific student
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
         {
             if (string.IsNullOrWhiteSpace(studentNo))
-                return BadRequest(new { status = 0, message = "Student number is required." });
+                return BadRequest(new { status = 400, message = "Student number is required." });
 
             studentNo = studentNo.Trim().ToUpper();
 
-            try
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, studentResult);
+
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+
+            return Ok(new
             {
-                dynamic student = await _studentRepository.GetStudentByStudentId(studentNo);
-                if (student == null)
-                    return NotFound(new { status = 0, message = $"Student '{studentNo}' not found." });
-
-                List<dynamic> violations = await _violationRepository
-                    .GetViolationsByStudentId((string)student.StudentNo);
-
-                return Ok(new
+                status = 200,
+                message = "Success",
+                data = new
                 {
-                    status = 1,
-                    message = "Success",
-                    data = new
+                    student_no = studentResult.Data.StudentNo,
+                    name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
+                    email = studentResult.Data.Email,
+                    contact_number = studentResult.Data.ContactNumber,
+                    gender = studentResult.Data.Gender,
+                    address = studentResult.Data.Address,
+                    date_of_birth = studentResult.Data.DateOfBirth,
+                    course = studentResult.Data.Course,
+                    year = studentResult.Data.Year,
+                    violation_count = violations.Count,
+                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
+                    violations = violations.Select(v => new
                     {
-                        student_no = student.StudentNo,
-                        name = $"{student.FirstName} {student.LastName}",
-                        email = student.Email,
-                        contact_number = student.ContactNumber,
-                        gender = student.Gender,
-                        address = student.Address,
-                        date_of_birth = student.DateOfBirth,
-                        course = student.Course,
-                        year = student.Year,
-                        violation_count = violations.Count,
-                        warning_level = ViolationHelper.GetWarningLevel(violations.Count),
-                        violations = violations.Select(v => new
-                        {
-                            id = v.ViolationID,
-                            type = v.ViolationName,
-                            details = v.Description,
-                            severity = v.Severity,
-                            date = v.ViolationDate,
-                            status = v.Status,
-                            recorded_by = v.GuardName
-                        })
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+                        id = v.ViolationID,
+                        type = v.ViolationName,
+                        details = v.Description,
+                        severity = v.Severity,
+                        date = v.ViolationDate,
+                        status = v.Status,
+                        recorded_by = v.GuardName
+                    })
+                }
+            });
         }
 
         // GET api/guidance/violations/by-status
-        // Returns all violations grouped by status (Pending, Approved, Rejected) with counts
         [HttpGet("violations/by-status")]
         public async Task<IActionResult> GetViolationsByStatus()
         {
-            try
+            var result = await _violationRepository.GetAllViolations();
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
+
+            var violations = result.Data ?? new List<ViolationModel>();
+            if (violations.Count == 0)
+                return NotFound(new { status = 404, message = "No violations found." });
+
+            var studentsResult = await _studentRepository.GetAllStudents();
+            var students = studentsResult.Data ?? new List<StudentModel>();
+
+            var statuses = new[] { "Pending", "Approved", "Rejected" };
+            var grouped = statuses.Select(s => new
             {
-                List<dynamic> violations = await _violationRepository.GetAllViolations();
-                List<dynamic> students = await _studentRepository.GetAllStudents();
+                status = s,
+                count = violations.Count(v => v.Status.Equals(s, StringComparison.OrdinalIgnoreCase)),
+                violations = violations
+                    .Where(v => v.Status.Equals(s, StringComparison.OrdinalIgnoreCase))
+                    .Select(v => new
+                    {
+                        id = v.ViolationID,
+                        student_no = students.FirstOrDefault(st => st.StudentID == v.StudentId)?.StudentNo,
+                        type = v.ViolationName,
+                        details = v.Description,
+                        severity = v.Severity,
+                        date = v.ViolationDate,
+                        recorded_by = v.GuardName
+                    })
+            });
 
-                if (violations == null || violations.Count == 0)
-                    return NotFound(new { status = 0, message = "No violations found." });
-
-                var statuses = new[] { "Pending", "Approved", "Rejected" };
-
-                var grouped = statuses.Select(s => new
-                {
-                    status = s,
-                    count = violations.Count(v => ((string)v.Status).Equals(s, StringComparison.OrdinalIgnoreCase)),
-                    violations = violations
-                        .Where(v => ((string)v.Status).Equals(s, StringComparison.OrdinalIgnoreCase))
-                        .Select(v => new
-                        {
-                            id = v.ViolationID,
-                            student_no = students
-                                .FirstOrDefault(s2 => s2.StudentID == v.StudentId)?.StudentNo,
-                            type = v.ViolationName,
-                            details = v.Description,
-                            severity = v.Severity,
-                            date = v.ViolationDate,
-                            recorded_by = v.GuardName
-                        })
-                });
-
-                return Ok(new
-                {
-                    status = 1,
-                    message = "Success",
-                    total = violations.Count,
-                    data = grouped
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+            return Ok(new { status = 200, message = "Success", total = violations.Count, data = grouped });
         }
 
         // GET api/guidance/violations/by-severity
-        // Returns all violations grouped by severity level
         [HttpGet("violations/by-severity")]
         public async Task<IActionResult> GetViolationsBySeverity()
         {
-            try
-            {
-                List<dynamic> violations = await _violationRepository.GetAllViolations();
+            var result = await _violationRepository.GetAllViolations();
+            if (result.Status != 200)
+                return StatusCode(result.Status, result);
 
-                if (violations == null || violations.Count == 0)
-                    return NotFound(new { status = 0, message = "No violations found." });
+            var violations = result.Data ?? new List<ViolationModel>();
+            if (violations.Count == 0)
+                return NotFound(new { status = 404, message = "No violations found." });
 
-                List<dynamic> students = await _studentRepository.GetAllStudents();
+            var studentsResult = await _studentRepository.GetAllStudents();
+            var students = studentsResult.Data ?? new List<StudentModel>();
 
-                var grouped = violations
-                    .GroupBy(v => (string)v.Severity)
-                    .Select(g => new
+            var grouped = violations
+                .GroupBy(v => v.Severity)
+                .Select(g => new
+                {
+                    severity = g.Key,
+                    count = g.Count(),
+                    violations = g.Select(v => new
                     {
-                        severity = g.Key,
-                        count = g.Count(),
-                        violations = g.Select(v => new
-                        {
-                            id = v.ViolationID,
-                            student_no = students
-                                .FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
-                            type = v.ViolationName,
-                            details = v.Description,
-                            date = v.ViolationDate,
-                            status = v.Status,
-                            recorded_by = v.GuardName
-                        })
-                    });
+                        id = v.ViolationID,
+                        student_no = students.FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
+                        type = v.ViolationName,
+                        details = v.Description,
+                        date = v.ViolationDate,
+                        status = v.Status,
+                        recorded_by = v.GuardName
+                    })
+                });
 
-                return Ok(new { status = 1, message = "Success", data = grouped });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = ex.Message });
-            }
+            return Ok(new { status = 200, message = "Success", data = grouped });
         }
     }
 }
