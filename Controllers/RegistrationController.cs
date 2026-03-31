@@ -8,7 +8,8 @@ using System.Text.RegularExpressions;
 namespace StudentViolations.API.Controllers
 {
     [ApiController]
-    [Route("")]
+    [Route("api/auth")]
+    [ApiExplorerSettings(GroupName = "Authentication")]
     public class RegistrationController : ControllerBase
     {
         private readonly ILoginRepository _loginRepository;

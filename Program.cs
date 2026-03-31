@@ -52,13 +52,12 @@ builder.Services.AddSwaggerGen(c =>
     // Display groups in system flow order
     c.OrderActionsBy(api => api.GroupName switch
     {
-        "Registration" => "1",
-        "Login" => "2",
-        "Guard" => "3",
-        "Guidance" => "4",
+        "Authentication" => "1",
+        "Guard" => "2",
+        "Guidance" => "3",
+        "Student" => "4",
         "Admin" => "5",
-        "Student" => "6",
-        _ => "7"
+        _ => "6"
     });
 
     c.DocInclusionPredicate((docName, apiDesc) => true);

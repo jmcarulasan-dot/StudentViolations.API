@@ -5,7 +5,8 @@ using StudentViolations.API.Model;
 namespace StudentViolations.API.Controllers
 {
     [ApiController]
-    [Route("")]
+    [Route("api/auth")]
+    [ApiExplorerSettings(GroupName = "Authentication")]
     public class LoginController : ControllerBase
     {
         private readonly ILoginRepository _loginRepository;
