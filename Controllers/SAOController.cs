@@ -120,7 +120,7 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Violation is already approved." });
 
             var result = await _violationRepository.UpdateViolationStatus(id, "Approved");
-            return StatusCode(result.Status, result);
+            return Ok(new { status = 200, message = result.Message });
         }
 
         // PUT api/sao/violations/{id}/reject
@@ -138,7 +138,7 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Violation is already rejected." });
 
             var result = await _violationRepository.UpdateViolationStatus(id, "Rejected");
-            return StatusCode(result.Status, result);
+            return Ok(new { status = 200, message = result.Message });
         }
 
         // DELETE api/sao/violations/{id}
