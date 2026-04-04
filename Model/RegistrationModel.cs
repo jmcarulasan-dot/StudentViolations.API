@@ -1,6 +1,5 @@
 ﻿namespace StudentViolations.API.Model
 {
-    // Model for the POST /register endpoint — contains all fields needed to create a new user
     public class RegistrationModel
     {
         public string Username { get; set; }

@@ -1,6 +1,5 @@
 ﻿namespace StudentViolations.API.Model
 {
-    // Model for the PUT api/sao/users/{id} endpoint — all fields are optional
     public class UpdateUserModel
     {
         public string? FirstName { get; set; }

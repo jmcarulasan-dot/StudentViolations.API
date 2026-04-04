@@ -1,6 +1,5 @@
 ﻿namespace StudentViolations.API.Helpers
 {
-    // Shared helper used by all controllers
     public static class ViolationHelper
     {
         public static string GetWarningLevel(int violationCount)
