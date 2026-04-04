@@ -1,6 +1,5 @@
 ﻿namespace StudentViolations.API.Model
 {
-    // Matches the Violations table in the database
     public class ViolationModel
     {
         public int ViolationID { get; set; }

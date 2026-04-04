@@ -89,7 +89,6 @@ namespace StudentViolations.API.Controllers
             if (!ValidRoles.Contains(model.Role.Trim().ToLower()))
                 return BadRequest(new { status = 400, message = "Role must be one of: guard, student, guidance, sao." });
 
-            // Normalize
             model.Username = model.Username.Trim();
             model.Email = model.Email.Trim().ToLower();
             model.FirstName = model.FirstName.Trim();
@@ -108,7 +107,7 @@ namespace StudentViolations.API.Controllers
                 if (string.IsNullOrWhiteSpace(model.Course))
                     return BadRequest(new { status = 400, message = "Course is required for student role." });
                 if (!ValidCourses.Contains(model.Course.Trim().ToLower()))
-                    return BadRequest(new { status = 400, message = "Invalid course. Accepted: BSIT, BSHM, BSBA." });
+                    return BadRequest(new { status = 400, message = "Invalid course. Accepted: BSIT, BSHM, BSBA, BSCS, BSA." });
                 if (string.IsNullOrWhiteSpace(model.Year))
                     return BadRequest(new { status = 400, message = "Year is required for student role." });
                 if (!ValidYears.Contains(model.Year.Trim()))
@@ -122,16 +121,13 @@ namespace StudentViolations.API.Controllers
             if (model.Role != "student" && !string.IsNullOrWhiteSpace(model.StudentNo))
                 return BadRequest(new { status = 400, message = "Student number should only be provided for student role." });
 
-            // Check if username or email already taken
             var existsResult = await _loginRepository.UserExists(model.Username, model.Email);
             if (existsResult.Status == 200 && existsResult.Data)
                 return BadRequest(new { status = 400, message = "Username or email is already registered." });
 
-            // Hash password
             string salt = GenerateSalt();
             string hashedPassword = HashPassword(model.Password, salt);
 
-            // Build UserModel
             var newUser = new UserModel
             {
                 Username = model.Username,

@@ -35,7 +35,6 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            // ✅ Only return what's needed
             return Ok(new
             {
                 status = 200,

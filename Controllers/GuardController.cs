@@ -28,12 +28,10 @@ namespace StudentViolations.API.Controllers
 
             studentNo = studentNo.Trim().ToUpper();
 
-            // Get student
             var studentResult = await _guardRepository.GetStudentByQrCode(studentNo);
             if (studentResult.Status != 200)
                 return StatusCode(studentResult.Status, studentResult);
 
-            // Get violations
             var violationsResult = await _guardRepository.GetViolationsByStudentId(studentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
 
@@ -83,12 +81,10 @@ namespace StudentViolations.API.Controllers
             request.StudentNo = request.StudentNo.Trim().ToUpper();
             request.Severity = request.Severity.Trim().ToLower();
 
-            // Get student
             var studentResult = await _guardRepository.GetStudentByQrCode(request.StudentNo);
             if (studentResult.Status != 200)
                 return StatusCode(studentResult.Status, studentResult);
 
-            // Build ViolationModel
             var violation = new ViolationModel
             {
                 StudentId = studentResult.Data.StudentID,
@@ -102,7 +98,6 @@ namespace StudentViolations.API.Controllers
             if (recordResult.Status != 200)
                 return StatusCode(recordResult.Status, recordResult);
 
-            // Get updated violations
             var violationsResult = await _guardRepository.GetViolationsByStudentId(request.StudentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
 

@@ -342,12 +342,10 @@ namespace StudentViolations.API.Controllers
             if (request.Year != null && !ValidYears.Contains(request.Year.Trim()))
                 return BadRequest(new { status = 400, message = "Invalid year. Accepted: 1, 2, 3, 4." });
 
-            // Get current user data
             var userResult = await _saoRepository.GetUserById(id);
             if (userResult.Status != 200)
                 return StatusCode(userResult.Status, userResult);
 
-            // Build updated UserModel — null fields keep existing values
             var updated = new UserModel
             {
                 StudentID = userResult.Data.StudentID,
@@ -359,7 +357,7 @@ namespace StudentViolations.API.Controllers
                 Address = request.Address?.Trim() ?? userResult.Data.Address,
                 Course = request.Course?.Trim().ToUpper() ?? userResult.Data.Course,
                 Year = request.Year?.Trim() ?? userResult.Data.Year,
-                Role = userResult.Data.Role // Role never changes
+                Role = userResult.Data.Role
             };
 
             var result = await _saoRepository.UpdateUser(updated);
