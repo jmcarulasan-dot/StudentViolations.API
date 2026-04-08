@@ -13,5 +13,7 @@
         public string GuardName { get; set; }
         public DateTime ViolationDate { get; set; }
         public string Status { get; set; }
+        public string? AppealText { get; set; }
+        public string AppealStatus { get; set; }
     }
 }

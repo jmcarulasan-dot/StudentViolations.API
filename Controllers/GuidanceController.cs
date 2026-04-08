@@ -168,5 +168,56 @@ namespace StudentViolations.API.Controllers
                 });
             return Ok(new { status = 200, message = "Success", data = grouped });
         }
+
+        // POST api/guidance/violations/{id}/appeal/review
+        [HttpPost("violations/{id}/appeal/review")]
+        public async Task<IActionResult> ReviewAppeal(int id, [FromBody] string appealStatus)
+        {
+            if (string.IsNullOrWhiteSpace(appealStatus))
+                return BadRequest(new { status = 400, message = "Appeal status is required." });
+
+            var validStatuses = new[] { "Approved", "Rejected" };
+            if (!validStatuses.Contains(appealStatus.Trim()))
+                return BadRequest(new { status = 400, message = "Appeal status must be Approved or Rejected." });
+
+            var result = await _violationRepository.UpdateAppealStatus(id, appealStatus.Trim());
+            return StatusCode(result.Status, result);
+        }
+
+        // PUT api/guidance/students/{studentNo}/warn
+        [HttpPut("students/{studentNo}/warn")]
+        public async Task<IActionResult> WarnStudent(string studentNo)
+        {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 400, message = "Student number is required." });
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo.Trim().ToUpper());
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, studentResult);
+
+            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Warned");
+            return StatusCode(result.Status, result);
+        }
+
+        // PUT api/guidance/students/{studentNo}/recommend-dismiss
+        [HttpPut("students/{studentNo}/recommend-dismiss")]
+        public async Task<IActionResult> RecommendDismissal(string studentNo)
+        {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 400, message = "Student number is required." });
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo.Trim().ToUpper());
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, studentResult);
+
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo.Trim().ToUpper());
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+
+            if (violations.Count < 3)
+                return BadRequest(new { status = 400, message = "Student must have at least 3 violations to recommend dismissal." });
+
+            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
+            return StatusCode(result.Status, result);
+        }
     }
 }

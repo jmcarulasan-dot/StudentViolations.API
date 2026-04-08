@@ -94,5 +94,30 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+
+        public async Task<ServiceResponse<bool>> UpdateStudentStatus(int studentId, string status)
+        {
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "UPDATESTATUS");
+                param.Add("@StudentID", studentId);
+                param.Add("@Status", status);
+                await connection.ExecuteAsync("SP_STUDENT_DATA", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = $"Student status updated to {status} successfully.";
+                service.Data = true;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"UpdateStudentStatus error: {ex.Message}";
+            }
+            finally { connection.Close(); }
+            return service;
+        }
     }
 }

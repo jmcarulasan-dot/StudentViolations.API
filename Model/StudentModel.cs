@@ -17,5 +17,6 @@
         public DateTime? RegistrationDate { get; set; }
         public int ViolationCount { get; set; }
         public string WarningLevel { get; set; }
+        public string Status { get; set; }
     }
 }

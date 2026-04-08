@@ -132,5 +132,30 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+        // POST api/student/violations/{id}/appeal
+        [HttpPost("violations/{id}/appeal")]
+        public async Task<IActionResult> SubmitAppeal(int id, [FromBody] string appealText)
+        {
+            if (string.IsNullOrWhiteSpace(appealText))
+                return BadRequest(new { status = 400, message = "Appeal text is required." });
+
+            string studentNo = GetLoggedInStudentNo();
+            if (string.IsNullOrEmpty(studentNo))
+                return Unauthorized(new { status = 401, message = "Student number not found in token. Please login again." });
+
+            // Check if violation belongs to this student
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+            var violation = violations.FirstOrDefault(v => v.ViolationID == id);
+
+            if (violation == null)
+                return NotFound(new { status = 404, message = "Violation not found." });
+
+            if (violation.AppealStatus == "Pending" || violation.AppealStatus == "Approved")
+                return BadRequest(new { status = 400, message = "You have already submitted an appeal for this violation." });
+
+            var result = await _violationRepository.SubmitAppeal(id, appealText);
+            return StatusCode(result.Status, result);
+        }
     }
 }

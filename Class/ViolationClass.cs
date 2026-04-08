@@ -159,5 +159,55 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+
+        public async Task<ServiceResponse<bool>> SubmitAppeal(int violationId, string appealText)
+        {
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "SUBMITAPPEAL");
+                param.Add("@ViolationID", violationId);
+                param.Add("@AppealText", appealText);
+                await connection.ExecuteAsync("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Appeal submitted successfully.";
+                service.Data = true;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"SubmitAppeal error: {ex.Message}";
+            }
+            finally { connection.Close(); }
+            return service;
+        }
+
+        public async Task<ServiceResponse<bool>> UpdateAppealStatus(int violationId, string appealStatus)
+        {
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "UPDATEAPPEALSTATUS");
+                param.Add("@ViolationID", violationId);
+                param.Add("@AppealStatus", appealStatus);
+                await connection.ExecuteAsync("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = $"Appeal {appealStatus.ToLower()} successfully.";
+                service.Data = true;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"UpdateAppealStatus error: {ex.Message}";
+            }
+            finally { connection.Close(); }
+            return service;
+        }
     }
 }
