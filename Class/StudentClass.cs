@@ -10,12 +10,10 @@ namespace StudentViolations.API.Class
     public class StudentClass : IStudentRepository
     {
         private readonly string _connectionString;
-
         public StudentClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
-
         public async Task<ServiceResponse<StudentModel>> GetStudentByStudentId(string studentNo)
         {
             var service = new ServiceResponse<StudentModel>();
@@ -44,7 +42,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<List<StudentModel>>> GetAllStudents()
         {
             var service = new ServiceResponse<List<StudentModel>>();
@@ -66,7 +63,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<bool>> UpdateStudent(StudentModel student)
         {
             var service = new ServiceResponse<bool>();

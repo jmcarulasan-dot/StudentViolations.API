@@ -10,12 +10,10 @@ namespace StudentViolations.API.Controllers
     public class LoginController : ControllerBase
     {
         private readonly ILoginRepository _loginRepository;
-
         public LoginController(ILoginRepository loginRepository)
         {
             _loginRepository = loginRepository;
         }
-
         // POST /login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginModel request)

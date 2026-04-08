@@ -8,15 +8,13 @@ using System.Data;
 
 namespace StudentViolations.API.Class
 {
-    public class RegisterClass : IRegisterRepository
+   public class RegisterClass : IRegisterRepository
     {
         private readonly string _connectionString;
-
         public RegisterClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
-
         public async Task<ServiceResponse<UserModel>> RegisterUser(UserModel user)
         {
             var service = new ServiceResponse<UserModel>();
@@ -24,7 +22,6 @@ namespace StudentViolations.API.Class
             try
             {
                 await connection.OpenAsync();
-
                 // Check if StudentNo already exists for student role
                 if (user.Role.Equals("Student", StringComparison.OrdinalIgnoreCase) &&
                     !string.IsNullOrEmpty(user.StudentNo))
@@ -58,7 +55,6 @@ namespace StudentViolations.API.Class
                         return service;
                     }
                 }
-
                 // Register user into Users table
                 DynamicParameters param = new DynamicParameters();
                 param.Add("@FirstName", user.FirstName);

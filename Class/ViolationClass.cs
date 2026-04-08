@@ -10,12 +10,10 @@ namespace StudentViolations.API.Class
     public class ViolationClass : IViolationRepository
     {
         private readonly string _connectionString;
-
         public ViolationClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
-
         public async Task<ServiceResponse<bool>> RecordViolation(ViolationModel violation)
         {
             var service = new ServiceResponse<bool>();
@@ -43,7 +41,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<List<ViolationModel>>> GetViolationsByStudentId(string studentNo)
         {
             var service = new ServiceResponse<List<ViolationModel>>();
@@ -66,7 +63,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<List<ViolationModel>>> GetAllViolations()
         {
             var service = new ServiceResponse<List<ViolationModel>>();
@@ -88,7 +84,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<ViolationModel>> GetViolationById(int id)
         {
             var service = new ServiceResponse<ViolationModel>();
@@ -117,7 +112,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<bool>> UpdateViolationStatus(int id, string status)
         {
             var service = new ServiceResponse<bool>();
@@ -142,7 +136,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<bool>> DeleteViolation(int id)
         {
             var service = new ServiceResponse<bool>();

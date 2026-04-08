@@ -17,11 +17,9 @@ namespace StudentViolations.API.Controllers
         private readonly IViolationRepository _violationRepository;
         private readonly IStudentRepository _studentRepository;
         private readonly ISAORepository _saoRepository;
-
         private static readonly string[] ValidGenders = { "male", "female" };
         private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba", "bsa", "bscs"};
         private static readonly string[] ValidYears = { "1", "2", "3", "4" };
-
         public SAOController(
             IViolationRepository violationRepository,
             IStudentRepository studentRepository,
@@ -31,7 +29,6 @@ namespace StudentViolations.API.Controllers
             _studentRepository = studentRepository;
             _saoRepository = saoRepository;
         }
-
         // GET api/sao/violations
         [HttpGet("violations")]
         public async Task<IActionResult> GetAllViolations()
@@ -65,7 +62,6 @@ namespace StudentViolations.API.Controllers
                 })
             });
         }
-
         // GET api/sao/violations/by-status/{status}
         [HttpGet("violations/by-status/{status}")]
         public async Task<IActionResult> GetViolationsByStatus(string status)
@@ -104,7 +100,6 @@ namespace StudentViolations.API.Controllers
 
             return Ok(new { status = 200, message = "Success", total = filtered.Count, data = filtered });
         }
-
         // PUT api/sao/violations/{id}/approve
         [HttpPut("violations/{id}/approve")]
         public async Task<IActionResult> ApproveViolation(int id)
@@ -140,7 +135,6 @@ namespace StudentViolations.API.Controllers
             var result = await _violationRepository.UpdateViolationStatus(id, "Rejected");
             return Ok(new { status = 200, message = result.Message });
         }
-
         // DELETE api/sao/violations/{id}
         [HttpDelete("violations/{id}")]
         public async Task<IActionResult> DeleteViolation(int id)
@@ -173,7 +167,6 @@ namespace StudentViolations.API.Controllers
 
             return Ok(new { status = 200, message = "Violation deleted successfully.", deletion_history = deletionRecord });
         }
-
         // GET api/sao/violations/summary
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetSummary()
@@ -205,7 +198,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // GET api/sao/students/{studentNo}/report
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
@@ -252,7 +244,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // GET api/sao/users
         [HttpGet("users")]
         public async Task<IActionResult> GetAllUsers()
@@ -285,7 +276,6 @@ namespace StudentViolations.API.Controllers
                 })
             });
         }
-
         // GET api/sao/users/{id}
         [HttpGet("users/{id}")]
         public async Task<IActionResult> GetUserById(int id)
@@ -317,7 +307,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // PUT api/sao/users/{id}
         [HttpPut("users/{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserModel request)
@@ -379,7 +368,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // DELETE api/sao/users/{id}
         [HttpDelete("users/{id}")]
         public async Task<IActionResult> DeleteUser(int id)

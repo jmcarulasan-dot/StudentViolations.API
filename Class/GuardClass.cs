@@ -10,12 +10,10 @@ namespace StudentViolations.API.Class
     public class GuardClass : IGuardRepository
     {
         private readonly string _connectionString;
-
         public GuardClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
-
         public async Task<ServiceResponse<List<ViolationModel>>> GetViolationsInDateRange(DateTime startDate, DateTime endDate)
         {
             var service = new ServiceResponse<List<ViolationModel>>();

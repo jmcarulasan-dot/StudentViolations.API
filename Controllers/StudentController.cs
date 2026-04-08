@@ -14,7 +14,6 @@ namespace StudentViolations.API.Controllers
     {
         private readonly IStudentRepository _studentRepository;
         private readonly IViolationRepository _violationRepository;
-
         public StudentController(
             IStudentRepository studentRepository,
             IViolationRepository violationRepository)
@@ -22,13 +21,11 @@ namespace StudentViolations.API.Controllers
             _studentRepository = studentRepository;
             _violationRepository = violationRepository;
         }
-
         private string GetLoggedInStudentNo()
         {
             var studentNo = User.FindFirstValue("studentNo");
             return string.IsNullOrWhiteSpace(studentNo) ? string.Empty : studentNo;
         }
-
         // GET api/student/violations
         [HttpGet("violations")]
         public async Task<IActionResult> GetMyViolations()
@@ -74,7 +71,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // GET api/student/profile
         [HttpGet("profile")]
         public async Task<IActionResult> GetMyProfile()
@@ -109,7 +105,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // GET api/student/qrcode
         [HttpGet("qrcode")]
         public async Task<IActionResult> GetMyQrCode()

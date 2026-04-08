@@ -13,12 +13,10 @@ namespace StudentViolations.API.Controllers
     {
         private readonly IGuardRepository _guardRepository;
         private static readonly string[] ValidSeverities = { "minor", "moderate", "major", "critical" };
-
         public GuardController(IGuardRepository guardRepository)
         {
             _guardRepository = guardRepository;
         }
-
         // GET api/guard/student/validate?studentNo=xxx
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
@@ -59,7 +57,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // POST api/guard/student/violation
         [HttpPost("student/violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationModel request)
@@ -114,7 +111,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // GET api/guard/violations/summary?StartDate=xxx&EndDate=xxx
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetViolationSummary([FromQuery] GetSummaryModel request)
@@ -154,7 +150,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // GET api/guard/students
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
@@ -181,7 +176,6 @@ namespace StudentViolations.API.Controllers
                 })
             });
         }
-
         // GET api/guard/students/exist?studentNo=xxx
         [HttpGet("students/exist")]
         public async Task<IActionResult> GetStudentByStudentNo([FromQuery] string studentNo)

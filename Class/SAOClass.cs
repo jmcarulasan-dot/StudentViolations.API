@@ -10,12 +10,10 @@ namespace StudentViolations.API.Class
     public class SAOClass : ISAORepository
     {
         private readonly string _connectionString;
-
         public SAOClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
-
         public async Task<ServiceResponse<List<UserModel>>> GetAllUsers()
         {
             var service = new ServiceResponse<List<UserModel>>();
@@ -37,7 +35,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<UserModel>> GetUserById(int id)
         {
             var service = new ServiceResponse<UserModel>();
@@ -66,7 +63,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<bool>> UpdateUser(UserModel user)
         {
             var service = new ServiceResponse<bool>();
@@ -99,7 +95,6 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
-
         public async Task<ServiceResponse<bool>> DeleteUser(int id)
         {
             var service = new ServiceResponse<bool>();

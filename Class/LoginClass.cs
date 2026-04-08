@@ -16,13 +16,11 @@ namespace StudentViolations.API.Class
     {
         private readonly string _connectionString;
         private readonly IConfiguration _configuration;
-
         public LoginClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
             _configuration = configuration;
         }
-
         public async Task<ServiceResponse<UserModel>> Authenticate(string username, string password)
         {
             var service = new ServiceResponse<UserModel>();
@@ -30,7 +28,6 @@ namespace StudentViolations.API.Class
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
                 param.Add("@statementType", "GETLOGIN");
                 param.Add("@username", username);
@@ -80,7 +77,6 @@ namespace StudentViolations.API.Class
             try
             {
                 await connection.OpenAsync();
-
                 DynamicParameters param = new DynamicParameters();
                 param.Add("@username", username);
                 param.Add("@email", email);

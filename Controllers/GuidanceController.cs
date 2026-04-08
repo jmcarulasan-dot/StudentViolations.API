@@ -21,7 +21,6 @@ namespace StudentViolations.API.Controllers
             _studentRepository = studentRepository;
             _violationRepository = violationRepository;
         }
-
         // GET api/guidance/students
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
@@ -52,10 +51,8 @@ namespace StudentViolations.API.Controllers
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count)
                 });
             }
-
             return Ok(new { status = 200, message = "Success", total = studentList.Count, data = studentList });
         }
-
         // GET api/guidance/students/{studentNo}/report
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
@@ -102,7 +99,6 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
-
         // GET api/guidance/violations/by-status
         [HttpGet("violations/by-status")]
         public async Task<IActionResult> GetViolationsByStatus()
@@ -136,10 +132,8 @@ namespace StudentViolations.API.Controllers
                         recorded_by = v.GuardName
                     })
             });
-
             return Ok(new { status = 200, message = "Success", total = violations.Count, data = grouped });
         }
-
         // GET api/guidance/violations/by-severity
         [HttpGet("violations/by-severity")]
         public async Task<IActionResult> GetViolationsBySeverity()
@@ -172,7 +166,6 @@ namespace StudentViolations.API.Controllers
                         recorded_by = v.GuardName
                     })
                 });
-
             return Ok(new { status = 200, message = "Success", data = grouped });
         }
     }
