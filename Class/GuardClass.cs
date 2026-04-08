@@ -86,10 +86,12 @@ namespace StudentViolations.API.Class
                 {
                     service.Status = 404;
                     service.Message = "Student not found.";
-                    return service;
                 }
-                service.Status = 200;
-                service.Data = result;
+                else
+                {
+                    service.Status = 200;
+                    service.Data = result;
+                }
             }
             catch (Exception ex)
             {
