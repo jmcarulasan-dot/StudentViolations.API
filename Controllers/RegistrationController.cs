@@ -78,8 +78,8 @@ namespace StudentViolations.API.Controllers
 
             if (string.IsNullOrWhiteSpace(model.Number))
                 return BadRequest(new { status = 400, message = "Contact number is required." });
-            if (!Regex.IsMatch(model.Number.Trim(), @"^\d{11}$"))
-                return BadRequest(new { status = 400, message = "Contact number must be exactly 11 digits." });
+            if (!Regex.IsMatch(model.Number.Trim(), @"^09\d{9}$"))
+                return BadRequest(new { status = 400, message = "Contact number must start with 09 and be exactly 11 digits." });
 
             if (string.IsNullOrWhiteSpace(model.Role))
                 return BadRequest(new { status = 400, message = "Role is required." });

@@ -326,9 +326,6 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Contact number must be 11 digits starting with 09." });
             if (request.Gender != null && !ValidGenders.Contains(request.Gender.Trim().ToLower()))
                 return BadRequest(new { status = 400, message = "Gender must be 'male' or 'female'." });
-            if (request.Course != null && !ValidCourses.Contains(request.Course.Trim().ToLower()))
-                return BadRequest(new { status = 400, message = "Invalid course. Accepted: BSIT, BSHM, BSBA, BSA, BSCS." });
-            if (request.Year != null && !ValidYears.Contains(request.Year.Trim()))
                 return BadRequest(new { status = 400, message = "Invalid year. Accepted: 1, 2, 3, 4." });
 
             var userResult = await _saoRepository.GetUserById(id);
@@ -344,8 +341,6 @@ namespace StudentViolations.API.Controllers
                 ContactNumber = request.ContactNumber?.Trim() ?? userResult.Data.ContactNumber,
                 Gender = request.Gender?.Trim().ToLower() ?? userResult.Data.Gender,
                 Address = request.Address?.Trim() ?? userResult.Data.Address,
-                Course = request.Course?.Trim().ToUpper() ?? userResult.Data.Course,
-                Year = request.Year?.Trim() ?? userResult.Data.Year,
                 Role = userResult.Data.Role
             };
 
