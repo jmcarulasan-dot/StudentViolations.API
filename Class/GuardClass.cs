@@ -29,8 +29,15 @@ namespace StudentViolations.API.Class
                 param.Add("@EndDate", endDate);
 
                 var result = await connection.QueryAsync<ViolationModel>("SP_GUARD", param, commandType: CommandType.StoredProcedure);
+                var list = result.ToList();
+                if (list.Count == 0)
+                {
+                    service.Status = 404;
+                    service.Message = "No violations found in this date range.";
+                    return service;
+                }
                 service.Status = 200;
-                service.Data = result.ToList();
+                service.Data = list;
             }
             catch (Exception ex)
             {
