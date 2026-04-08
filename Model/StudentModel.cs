@@ -15,7 +15,6 @@
         public string Year { get; set; }
         public string? QRCode { get; set; }
         public DateTime? RegistrationDate { get; set; }
-
         public int ViolationCount { get; set; }
         public string WarningLevel { get; set; }
     }

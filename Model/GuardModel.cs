@@ -1,6 +1,5 @@
 ﻿namespace StudentViolations.API.Model
 {
-
     public class RecordViolationModel
     {
         public string StudentNo { get; set; }
@@ -9,7 +8,6 @@
         public string Severity { get; set; }
         public string GuardId { get; set; }
     }
-
     public class GetSummaryModel
     {
         public DateTime StartDate { get; set; }

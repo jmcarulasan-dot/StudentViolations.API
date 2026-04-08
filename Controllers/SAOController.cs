@@ -19,7 +19,7 @@ namespace StudentViolations.API.Controllers
         private readonly ISAORepository _saoRepository;
 
         private static readonly string[] ValidGenders = { "male", "female" };
-        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba", "bsit", "bscs"};
+        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba", "bsa", "bscs"};
         private static readonly string[] ValidYears = { "1", "2", "3", "4" };
 
         public SAOController(

@@ -6,7 +6,6 @@ namespace StudentViolations.API.IRepository
     public interface ILoginRepository
     {
         Task<ServiceResponse<UserModel>> Authenticate(string username, string password);
-
         Task<ServiceResponse<bool>> UserExists(string username, string email);
     }
 }
