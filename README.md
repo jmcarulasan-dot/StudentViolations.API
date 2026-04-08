@@ -291,3 +291,5 @@ Hannah's StudentNo: `C26-01-0001-MAN121`
 ## License
 
 This project is for educational purposes only — ACLC College of Mandaue, 2026.
+
+All role endpoint are properly working
