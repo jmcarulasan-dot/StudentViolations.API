@@ -169,7 +169,8 @@ namespace StudentViolations.API.Class
                 DynamicParameters param = new DynamicParameters();
                 param.Add("@statementType", "GETSTUDENTBYNO");
                 param.Add("@StudentNo", studentNo);
-                var result = await connection.QueryFirstOrDefaultAsync<StudentModel>("SP_GUARD", param, commandType: CommandType.StoredProcedure);
+                var result = await connection.QueryFirstOrDefaultAsync<StudentModel>(
+                    "SP_GUARD", param, commandType: CommandType.StoredProcedure);
                 if (result == null)
                 {
                     service.Status = 404;
@@ -184,7 +185,10 @@ namespace StudentViolations.API.Class
                 service.Status = 500;
                 service.Message = $"GetStudentByStudentNo error: {ex.Message}";
             }
-            finally { connection.Close(); }
+            finally
+            {
+                connection.Close();
+            }
             return service;
         }
     }
