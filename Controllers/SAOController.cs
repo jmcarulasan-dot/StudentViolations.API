@@ -33,7 +33,7 @@ namespace StudentViolations.API.Controllers
         {
             var result = await _violationRepository.GetAllViolations();
             if (result.Status != 200)
-                return StatusCode(result.Status, result);
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             var violations = result.Data ?? new List<ViolationModel>();
             if (violations.Count == 0)
@@ -74,7 +74,7 @@ namespace StudentViolations.API.Controllers
 
             var result = await _violationRepository.GetAllViolations();
             if (result.Status != 200)
-                return StatusCode(result.Status, result);
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             var studentsResult = await _studentRepository.GetAllStudents();
             var students = studentsResult.Data ?? new List<StudentModel>();
@@ -107,7 +107,7 @@ namespace StudentViolations.API.Controllers
 
             var violationResult = await _violationRepository.GetViolationById(id);
             if (violationResult.Status != 200)
-                return StatusCode(violationResult.Status, violationResult);
+                return StatusCode(violationResult.Status, new { status = violationResult.Status, message = violationResult.Message });
 
             if (violationResult.Data.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
                 return BadRequest(new { status = 400, message = "Violation is already approved." });
@@ -125,7 +125,7 @@ namespace StudentViolations.API.Controllers
 
             var violationResult = await _violationRepository.GetViolationById(id);
             if (violationResult.Status != 200)
-                return StatusCode(violationResult.Status, violationResult);
+                return StatusCode(violationResult.Status, new { status = violationResult.Status, message = violationResult.Message });
 
             if (violationResult.Data.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
                 return BadRequest(new { status = 400, message = "Violation is already rejected." });
@@ -142,7 +142,7 @@ namespace StudentViolations.API.Controllers
 
             var violationResult = await _violationRepository.GetViolationById(id);
             if (violationResult.Status != 200)
-                return StatusCode(violationResult.Status, violationResult);
+                return StatusCode(violationResult.Status, new { status = violationResult.Status, message = violationResult.Message });
 
             // Capture deletion history before deleting
             var deletionRecord = new
@@ -161,7 +161,7 @@ namespace StudentViolations.API.Controllers
 
             var result = await _violationRepository.DeleteViolation(id);
             if (result.Status != 200)
-                return StatusCode(result.Status, result);
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             return Ok(new { status = 200, message = "Violation deleted successfully.", deletion_history = deletionRecord });
         }
@@ -171,7 +171,7 @@ namespace StudentViolations.API.Controllers
         {
             var result = await _violationRepository.GetAllViolations();
             if (result.Status != 200)
-                return StatusCode(result.Status, result);
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             var violations = result.Data ?? new List<ViolationModel>();
             if (violations.Count == 0)
@@ -207,7 +207,7 @@ namespace StudentViolations.API.Controllers
 
             var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
             if (studentResult.Status != 200)
-                return StatusCode(studentResult.Status, studentResult);
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
             var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
@@ -249,7 +249,7 @@ namespace StudentViolations.API.Controllers
         {
             var result = await _saoRepository.GetAllUsers();
             if (result.Status != 200)
-                return StatusCode(result.Status, result);
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             var users = result.Data ?? new List<UserModel>();
             if (users.Count == 0)
@@ -284,7 +284,7 @@ namespace StudentViolations.API.Controllers
 
             var result = await _saoRepository.GetUserById(id);
             if (result.Status != 200)
-                return StatusCode(result.Status, result);
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             return Ok(new
             {
@@ -328,7 +328,7 @@ namespace StudentViolations.API.Controllers
 
             var userResult = await _saoRepository.GetUserById(id);
             if (userResult.Status != 200)
-                return StatusCode(userResult.Status, userResult);
+                return StatusCode(userResult.Status, new { status = userResult.Status, message = userResult.Message });
 
             var updated = new UserModel
             {
@@ -343,7 +343,7 @@ namespace StudentViolations.API.Controllers
 
             var result = await _saoRepository.UpdateUser(updated);
             if (result.Status != 200)
-                return StatusCode(result.Status, result);
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             return Ok(new
             {
@@ -367,11 +367,11 @@ namespace StudentViolations.API.Controllers
 
             var userResult = await _saoRepository.GetUserById(id);
             if (userResult.Status != 200)
-                return StatusCode(userResult.Status, userResult);
+                return StatusCode(userResult.Status, new { status = userResult.Status, message = userResult.Message });
 
             var result = await _saoRepository.DeleteUser(id);
             if (result.Status != 200)
-                return StatusCode(result.Status, result);
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             return Ok(new { status = 200, message = $"User {userResult.Data.Username} deleted successfully." });
         }
@@ -387,7 +387,7 @@ namespace StudentViolations.API.Controllers
 
             var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
             if (studentResult.Status != 200)
-                return StatusCode(studentResult.Status, studentResult);
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
             if (studentResult.Data.Status == "Dismissed")
                 return BadRequest(new { status = 400, message = "Student is already dismissed." });
@@ -396,7 +396,7 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Student has not been recommended for dismissal by Guidance." });
 
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
-            return StatusCode(result.Status, result);
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
 
         // PUT api/sao/students/{studentNo}/cancel-dismiss
@@ -410,35 +410,37 @@ namespace StudentViolations.API.Controllers
 
             var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
             if (studentResult.Status != 200)
-                return StatusCode(studentResult.Status, studentResult);
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
-            if (studentResult.Data.Status != "PendingDismissal")
-                return BadRequest(new { status = 400, message = "Student is not pending dismissal." });
+            if (studentResult.Data.Status != "PendingDismissal" && studentResult.Data.Status != "Dismissed")
+                return BadRequest(new { status = 400, message = "Student is not pending or dismissed." });
 
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Active");
-            return StatusCode(result.Status, result);
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
 
         // PUT api/sao/violations/{id}/appeal/review
         [HttpPut("violations/{id}/appeal/review")]
-        public async Task<IActionResult> ReviewAppeal(int id, [FromBody] string appealStatus)
+        public async Task<IActionResult> ReviewAppeal(int id, [FromBody] AppealReviewModel request)
         {
-            if (string.IsNullOrWhiteSpace(appealStatus))
+            if (request == null)
+                return BadRequest(new { status = 400, message = "Request body is required." });
+            if (string.IsNullOrWhiteSpace(request.AppealStatus))
                 return BadRequest(new { status = 400, message = "Appeal status is required." });
 
             var validStatuses = new[] { "Approved", "Rejected" };
-            if (!validStatuses.Contains(appealStatus.Trim()))
+            if (!validStatuses.Contains(request.AppealStatus.Trim()))
                 return BadRequest(new { status = 400, message = "Appeal status must be Approved or Rejected." });
 
             var violationResult = await _violationRepository.GetViolationById(id);
             if (violationResult.Status != 200)
-                return StatusCode(violationResult.Status, violationResult);
+                return StatusCode(violationResult.Status, new { status = violationResult.Status, message = violationResult.Message });
 
             if (violationResult.Data.AppealStatus == "None")
                 return BadRequest(new { status = 400, message = "No appeal has been submitted for this violation." });
 
-            var result = await _violationRepository.UpdateAppealStatus(id, appealStatus.Trim());
-            return StatusCode(result.Status, result);
+            var result = await _violationRepository.UpdateAppealStatus(id, request.AppealStatus.Trim(), request.AppealRemarks?.Trim());
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
     }
 }

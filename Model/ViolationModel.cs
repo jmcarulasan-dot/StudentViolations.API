@@ -15,5 +15,11 @@
         public string Status { get; set; }
         public string? AppealText { get; set; }
         public string AppealStatus { get; set; }
+        public string? AppealRemarks { get; set; }
+    }
+    public class AppealReviewModel
+    {
+        public string AppealStatus { get; set; }
+        public string? AppealRemarks { get; set; }
     }
 }

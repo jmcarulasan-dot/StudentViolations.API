@@ -185,7 +185,7 @@ namespace StudentViolations.API.Class
             return service;
         }
 
-        public async Task<ServiceResponse<bool>> UpdateAppealStatus(int violationId, string appealStatus)
+        public async Task<ServiceResponse<bool>> UpdateAppealStatus(int violationId, string appealStatus, string appealRemarks)
         {
             var service = new ServiceResponse<bool>();
             SqlConnection connection = new SqlConnection(_connectionString);
@@ -196,6 +196,7 @@ namespace StudentViolations.API.Class
                 param.Add("@statementType", "UPDATEAPPEALSTATUS");
                 param.Add("@ViolationID", violationId);
                 param.Add("@AppealStatus", appealStatus);
+                param.Add("@AppealRemarks", appealRemarks);
                 await connection.ExecuteAsync("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
                 service.Status = 200;
                 service.Message = $"Appeal {appealStatus.ToLower()} successfully.";

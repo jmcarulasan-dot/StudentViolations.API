@@ -28,7 +28,7 @@ namespace StudentViolations.API.Controllers
 
             var studentResult = await _guardRepository.GetStudentByQrCode(studentNo);
             if (studentResult.Status != 200)
-                return StatusCode(studentResult.Status, studentResult);
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
             var violationsResult = await _guardRepository.GetViolationsByStudentId(studentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
@@ -80,7 +80,7 @@ namespace StudentViolations.API.Controllers
 
             var studentResult = await _guardRepository.GetStudentByQrCode(request.StudentNo);
             if (studentResult.Status != 200)
-                return StatusCode(studentResult.Status, studentResult);
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
             var violation = new ViolationModel
             {

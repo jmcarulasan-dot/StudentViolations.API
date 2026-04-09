@@ -12,6 +12,6 @@ namespace StudentViolations.API.IRepository
         Task<ServiceResponse<bool>> UpdateViolationStatus(int id, string status);
         Task<ServiceResponse<bool>> DeleteViolation(int id);
         Task<ServiceResponse<bool>> SubmitAppeal(int violationId, string appealText);
-        Task<ServiceResponse<bool>> UpdateAppealStatus(int violationId, string appealStatus);
+        Task<ServiceResponse<bool>> UpdateAppealStatus(int violationId, string appealStatus, string appealRemarks);
     }
 }

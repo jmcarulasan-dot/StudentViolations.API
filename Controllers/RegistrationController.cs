@@ -145,7 +145,7 @@ namespace StudentViolations.API.Controllers
             };
 
             var result = await _registerRepository.RegisterUser(newUser);
-            return StatusCode(result.Status, result);
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
         private string GenerateSalt()
         {

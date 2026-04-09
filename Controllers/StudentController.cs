@@ -58,6 +58,7 @@ namespace StudentViolations.API.Controllers
                     approved,
                     rejected,
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count),
+                    recommended_action = ViolationHelper.GetRecommendedAction(violations.Count),
                     violations = violations.Select(v => new
                     {
                         id = v.ViolationID,
@@ -66,7 +67,10 @@ namespace StudentViolations.API.Controllers
                         severity = v.Severity,
                         date = v.ViolationDate,
                         status = v.Status,
-                        recorded_by = v.GuardName
+                        recorded_by = v.GuardName,
+                        appeal_text = v.AppealText,
+                        appeal_status = v.AppealStatus,
+                        appeal_remarks = v.AppealRemarks
                     })
                 }
             });
@@ -155,7 +159,7 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "You have already submitted an appeal for this violation." });
 
             var result = await _violationRepository.SubmitAppeal(id, appealText);
-            return StatusCode(result.Status, result);
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
     }
 }
