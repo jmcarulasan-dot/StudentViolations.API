@@ -48,7 +48,8 @@ namespace StudentViolations.API.Controllers
                     contact_number = student.ContactNumber,
                     gender = student.Gender,
                     violation_count = violations.Count,
-                    warning_level = ViolationHelper.GetWarningLevel(violations.Count)
+                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
+                    recommended_action = ViolationHelper.GetRecommendedAction(violations.Count),
                 });
             }
             return Ok(new { status = 200, message = "Success", total = studentList.Count, data = studentList });

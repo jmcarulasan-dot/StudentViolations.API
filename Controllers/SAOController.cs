@@ -229,6 +229,7 @@ namespace StudentViolations.API.Controllers
                     year = studentResult.Data.Year,
                     violation_count = violations.Count,
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count),
+                    recommended_action = ViolationHelper.GetRecommendedAction(violations.Count),
                     violations = violations.Select(v => new
                     {
                         id = v.ViolationID,
