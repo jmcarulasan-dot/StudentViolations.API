@@ -322,7 +322,7 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Invalid email format." });
             if (request.ContactNumber != null && !Regex.IsMatch(request.ContactNumber.Trim(), @"^09\d{9}$"))
                 return BadRequest(new { status = 400, message = "Contact number must be 11 digits starting with 09." });
-            if(request.Gender != null && !ValidGenders.Contains(request.Gender.Trim().ToLower()))
+            if (request.Gender != null && !ValidGenders.Contains(request.Gender.Trim().ToLower()))
                 return BadRequest(new { status = 400, message = "Gender must be 'male' or 'female'." });
 
             var userResult = await _saoRepository.GetUserById(id);
@@ -353,7 +353,7 @@ namespace StudentViolations.API.Controllers
                     id = updated.StudentID,
                     name = $"{updated.FirstName} {updated.LastName}",
                     email = updated.Email,
-                   
+
                 }
             });
         }
@@ -373,6 +373,54 @@ namespace StudentViolations.API.Controllers
                 return StatusCode(result.Status, result);
 
             return Ok(new { status = 200, message = $"User {userResult.Data.Username} deleted successfully." });
+        }
+
+        // PUT api/sao/students/{studentNo}/dismiss
+        [HttpPut("students/{studentNo}/dismiss")]
+        public async Task<IActionResult> DismissStudent(string studentNo)
+        {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 400, message = "Student number is required." });
+
+            studentNo = studentNo.Trim().ToUpper();
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, studentResult);
+
+            if (studentResult.Data.Status == "Dismissed")
+                return BadRequest(new { status = 400, message = "Student is already dismissed." });
+
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+
+            if (violations.Count < 3)
+                return BadRequest(new { status = 400, message = "Student must have at least 3 violations to be dismissed." });
+
+            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
+            return StatusCode(result.Status, result);
+        }
+
+        // PUT api/sao/violations/{id}/appeal/review
+        [HttpPut("violations/{id}/appeal/review")]
+        public async Task<IActionResult> ReviewAppeal(int id, [FromBody] string appealStatus)
+        {
+            if (string.IsNullOrWhiteSpace(appealStatus))
+                return BadRequest(new { status = 400, message = "Appeal status is required." });
+
+            var validStatuses = new[] { "Approved", "Rejected" };
+            if (!validStatuses.Contains(appealStatus.Trim()))
+                return BadRequest(new { status = 400, message = "Appeal status must be Approved or Rejected." });
+
+            var violationResult = await _violationRepository.GetViolationById(id);
+            if (violationResult.Status != 200)
+                return StatusCode(violationResult.Status, violationResult);
+
+            if (violationResult.Data.AppealStatus == "None")
+                return BadRequest(new { status = 400, message = "No appeal has been submitted for this violation." });
+
+            var result = await _violationRepository.UpdateAppealStatus(id, appealStatus.Trim());
+            return StatusCode(result.Status, result);
         }
     }
 }
