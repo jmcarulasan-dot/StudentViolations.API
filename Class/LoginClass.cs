@@ -53,6 +53,13 @@ namespace StudentViolations.API.Class
                     return service;
                 }
 
+                if (result.Status == "Dismissed")
+                {
+                    service.Status = 400;
+                    service.Message = "Your account has been dismissed. Please contact the SAO office.";
+                    return service;
+                }
+
                 service.Status = 200;
                 service.Message = "Login successful.";
                 service.Data = result;

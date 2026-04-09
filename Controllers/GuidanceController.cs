@@ -217,7 +217,7 @@ namespace StudentViolations.API.Controllers
             if (violations.Count < 3)
                 return BadRequest(new { status = 400, message = "Student must have at least 3 violations to recommend dismissal." });
 
-            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
+            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "PendingDismissal");
             return StatusCode(result.Status, result);
         }
     }

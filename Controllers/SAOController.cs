@@ -392,13 +392,30 @@ namespace StudentViolations.API.Controllers
             if (studentResult.Data.Status == "Dismissed")
                 return BadRequest(new { status = 400, message = "Student is already dismissed." });
 
-            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
-            var violations = violationsResult.Data ?? new List<ViolationModel>();
-
-            if (violations.Count < 3)
-                return BadRequest(new { status = 400, message = "Student must have at least 3 violations to be dismissed." });
+            if (studentResult.Data.Status != "PendingDismissal")
+                return BadRequest(new { status = 400, message = "Student has not been recommended for dismissal by Guidance." });
 
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
+            return StatusCode(result.Status, result);
+        }
+
+        // PUT api/sao/students/{studentNo}/cancel-dismiss
+        [HttpPut("students/{studentNo}/cancel-dismiss")]
+        public async Task<IActionResult> CancelDismissal(string studentNo)
+        {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 400, message = "Student number is required." });
+
+            studentNo = studentNo.Trim().ToUpper();
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, studentResult);
+
+            if (studentResult.Data.Status != "PendingDismissal")
+                return BadRequest(new { status = 400, message = "Student is not pending dismissal." });
+
+            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Active");
             return StatusCode(result.Status, result);
         }
 
