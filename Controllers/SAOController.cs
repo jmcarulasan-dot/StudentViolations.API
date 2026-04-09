@@ -18,8 +18,6 @@ namespace StudentViolations.API.Controllers
         private readonly IStudentRepository _studentRepository;
         private readonly ISAORepository _saoRepository;
         private static readonly string[] ValidGenders = { "male", "female" };
-        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba", "bsa", "bscs"};
-        private static readonly string[] ValidYears = { "1", "2", "3", "4" };
         public SAOController(
             IViolationRepository violationRepository,
             IStudentRepository studentRepository,
@@ -324,9 +322,8 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Invalid email format." });
             if (request.ContactNumber != null && !Regex.IsMatch(request.ContactNumber.Trim(), @"^09\d{9}$"))
                 return BadRequest(new { status = 400, message = "Contact number must be 11 digits starting with 09." });
-            if (request.Gender != null && !ValidGenders.Contains(request.Gender.Trim().ToLower()))
+            if(request.Gender != null && !ValidGenders.Contains(request.Gender.Trim().ToLower()))
                 return BadRequest(new { status = 400, message = "Gender must be 'male' or 'female'." });
-                return BadRequest(new { status = 400, message = "Invalid year. Accepted: 1, 2, 3, 4." });
 
             var userResult = await _saoRepository.GetUserById(id);
             if (userResult.Status != 200)
@@ -341,7 +338,6 @@ namespace StudentViolations.API.Controllers
                 ContactNumber = request.ContactNumber?.Trim() ?? userResult.Data.ContactNumber,
                 Gender = request.Gender?.Trim().ToLower() ?? userResult.Data.Gender,
                 Address = request.Address?.Trim() ?? userResult.Data.Address,
-                Role = userResult.Data.Role
             };
 
             var result = await _saoRepository.UpdateUser(updated);
@@ -357,9 +353,7 @@ namespace StudentViolations.API.Controllers
                     id = updated.StudentID,
                     name = $"{updated.FirstName} {updated.LastName}",
                     email = updated.Email,
-                    role = updated.Role,
-                    course = updated.Course,
-                    year = updated.Year
+                   
                 }
             });
         }

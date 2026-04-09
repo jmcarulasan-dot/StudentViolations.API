@@ -79,7 +79,6 @@ namespace StudentViolations.API.Class
                 param.Add("@ContactNumber", user.ContactNumber);
                 param.Add("@Gender", user.Gender);
                 param.Add("@Address", user.Address);
-                param.Add("@Role", user.Role);
                 await connection.ExecuteAsync("SP_SAO", param, commandType: CommandType.StoredProcedure);
                 service.Status = 200;
                 service.Message = "User updated successfully.";
