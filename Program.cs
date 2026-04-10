@@ -47,7 +47,7 @@ builder.Services.AddEndpointsApiExplorer();
 // Swagger with JWT support
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "StudentViolations2.API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "StudentViolations.API", Version = "v1" });
 
     // Display groups in system flow order
     c.OrderActionsBy(api => api.GroupName switch

@@ -50,7 +50,7 @@ StudentViolations.API/
 │   ├── SAOController.cs
 │   └── StudentController.cs
 ├── Helpers/                    # Shared utility code
-│   └── ViolationHelper.cs      # GetWarningLevel() — used by all controllers
+│   └── ViolationHelper.cs      # GetWarningLevel() and GetRecommendedAction() — used by all controllers
 ├── IRepository/                # Interfaces — contracts for each Class
 │   ├── IGuardRepository.cs
 │   ├── ILoginRepository.cs
@@ -66,7 +66,7 @@ StudentViolations.API/
 │   ├── ServiceResponse.cs      # Generic response wrapper
 │   ├── StudentModel.cs
 │   ├── UserModel.cs
-│   └── ViolationModel.cs
+│   └── ViolationModel.cs       # ViolationModel, AppealReviewModel
 ├── Properties/
 │   └── launchSettings.json
 ├── appsettings.json
@@ -79,12 +79,12 @@ StudentViolations.API/
 
 JWT Bearer Token with role-based access control. Token is valid for **8 hours** (one full school day).
 
-| Role       | What They Can Do                                              |
-|------------|---------------------------------------------------------------|
-| `Guard`    | Scan QR code, record violations, view students                |
-| `Student`  | View own violations, profile, and QR code                     |
-| `Guidance` | View all students, reports, violations by status and severity |
-| `Sao`      | Full admin — approve/reject violations, manage all users      |
+| Role       | What They Can Do                                                                 |
+|------------|---------------------------------------------------------------------------------|
+| `Guard`    | Scan QR code, record violations, view students                                  |
+| `Student`  | View own violations, profile, QR code, and submit appeals                       |
+| `Guidance` | View all students, reports, violations, warn students, recommend dismissal, review appeals |
+| `Sao`      | Full admin — approve/reject violations, manage users, confirm/cancel dismissal, review appeals |
 
 All protected endpoints require:
 ```
@@ -93,22 +93,24 @@ Authorization: Bearer <your_token_here>
 
 Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (full name), `studentNo`
 
+> **Note:** If a student account has been **Dismissed**, login is blocked and returns a 400 error with the message: `Your account has been dismissed. Please contact the SAO office.`
+
 ---
 
 ## API Endpoints
 
 ### Public — No token required
 
-| Method | Endpoint    | Description                 |
-|--------|-------------|-----------------------------|
-| POST   | `/login`    | Login and receive JWT token |
-| POST   | `/register` | Register a new user account |
+| Method | Endpoint              | Description                 |
+|--------|-----------------------|-----------------------------|
+| POST   | `/api/auth/login`     | Login and receive JWT token |
+| POST   | `/api/auth/register`  | Register a new user account |
 
 ### Guard — `[Authorize(Roles = "guard,Guard")]`
 
 | Method | Endpoint                        | Description                                                             |
 |--------|---------------------------------|-------------------------------------------------------------------------|
-| GET    | `/api/guard/student/validate`   | Scan QR code — returns student info + warning level + violation history |
+| GET    | `/api/guard/student/validate`   | Scan QR code — returns student info, warning level, and violation history |
 | POST   | `/api/guard/student/violation`  | Record a new violation for a student                                    |
 | GET    | `/api/guard/violations/summary` | Get violation summary for a date range                                  |
 | GET    | `/api/guard/students`           | Get list of all registered students                                     |
@@ -116,36 +118,43 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 
 ### Student — `[Authorize(Roles = "Student,student")]`
 
-| Method | Endpoint                  | Description                                                    |
-|--------|---------------------------|----------------------------------------------------------------|
-| GET    | `/api/student/violations` | View own violations and warning level (reads StudentNo from token) |
-| GET    | `/api/student/profile`    | View own profile information                                   |
-| GET    | `/api/student/qrcode`     | View own QR code (Base64)                                      |
+| Method | Endpoint                              | Description                                                        |
+|--------|---------------------------------------|--------------------------------------------------------------------|
+| GET    | `/api/student/violations`             | View own violations including appeal status and remarks            |
+| GET    | `/api/student/profile`                | View own profile information                                       |
+| GET    | `/api/student/qrcode`                 | View own QR code (Base64)                                          |
+| POST   | `/api/student/violations/{id}/appeal` | Submit an appeal for a specific violation                          |
 
 ### Guidance — `[Authorize(Roles = "guidance,Guidance")]`
 
-| Method | Endpoint                                    | Description                                          |
-|--------|---------------------------------------------|------------------------------------------------------|
-| GET    | `/api/guidance/students`                    | View all students with violation counts              |
-| GET    | `/api/guidance/students/{studentNo}/report` | View full profile and violation history of a student |
-| GET    | `/api/guidance/violations/by-status`        | View violations grouped by Pending/Approved/Rejected |
-| GET    | `/api/guidance/violations/by-severity`      | View violations grouped by severity level            |
+| Method | Endpoint                                       | Description                                          |
+|--------|------------------------------------------------|------------------------------------------------------|
+| GET    | `/api/guidance/students`                       | View all students with violation counts and recommended actions |
+| GET    | `/api/guidance/students/{studentNo}/report`    | View full profile and violation history of a student |
+| GET    | `/api/guidance/violations/by-status`           | View violations grouped by Pending/Approved/Rejected |
+| GET    | `/api/guidance/violations/by-severity`         | View violations grouped by severity level            |
+| PUT    | `/api/guidance/students/{studentNo}/warn`      | Set student status to Warned                         |
+| PUT    | `/api/guidance/students/{studentNo}/recommend-dismiss` | Recommend student for dismissal (sets status to PendingDismissal) — requires 3+ violations |
+| POST   | `/api/guidance/violations/{id}/appeal/review`  | Review a student appeal with remarks                 |
 
 ### SAO (Admin) — `[Authorize(Roles = "sao,Sao")]`
 
-| Method | Endpoint                                 | Description                                    |
-|--------|------------------------------------------|------------------------------------------------|
-| GET    | `/api/sao/violations`                    | View all violations in the system              |
-| GET    | `/api/sao/violations/by-status/{status}` | Filter by Pending, Approved, or Rejected       |
-| PUT    | `/api/sao/violations/{id}/approve`       | Approve a violation                            |
-| PUT    | `/api/sao/violations/{id}/reject`        | Reject a violation                             |
-| DELETE | `/api/sao/violations/{id}`               | Delete a violation                             |
-| GET    | `/api/sao/violations/summary`            | View violation counts by status/severity/type  |
-| GET    | `/api/sao/students/{studentNo}/report`   | View full student profile and violation history|
-| GET    | `/api/sao/users`                         | View all registered users                      |
-| GET    | `/api/sao/users/{id}`                    | View one user by ID                            |
-| PUT    | `/api/sao/users/{id}`                    | Update a user's information                    |
-| DELETE | `/api/sao/users/{id}`                    | Permanently delete a user                      |
+| Method | Endpoint                                    | Description                                         |
+|--------|---------------------------------------------|-----------------------------------------------------|
+| GET    | `/api/sao/violations`                       | View all violations in the system                   |
+| GET    | `/api/sao/violations/by-status/{status}`    | Filter by Pending, Approved, or Rejected            |
+| PUT    | `/api/sao/violations/{id}/approve`          | Approve a violation                                 |
+| PUT    | `/api/sao/violations/{id}/reject`           | Reject a violation                                  |
+| DELETE | `/api/sao/violations/{id}`                  | Delete a violation                                  |
+| GET    | `/api/sao/violations/summary`               | View violation counts by status/severity/type       |
+| PUT    | `/api/sao/violations/{id}/appeal/review`    | Review a student appeal with remarks                |
+| GET    | `/api/sao/students/{studentNo}/report`      | View full student profile and violation history     |
+| PUT    | `/api/sao/students/{studentNo}/dismiss`     | Confirm student dismissal (student must be PendingDismissal) |
+| PUT    | `/api/sao/students/{studentNo}/cancel-dismiss` | Cancel dismissal — sets student back to Active   |
+| GET    | `/api/sao/users`                            | View all registered users                           |
+| GET    | `/api/sao/users/{id}`                       | View one user by ID                                 |
+| PUT    | `/api/sao/users/{id}`                       | Update a user's information (cannot change Course, Year, or Role) |
+| DELETE | `/api/sao/users/{id}`                       | Permanently delete a user                           |
 
 ---
 
@@ -157,10 +166,12 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 | `gender`       | male, female                              |
 | `severity`     | minor, moderate, major, critical          |
 | `status`       | Pending, Approved, Rejected               |
+| `appealStatus` | None, Pending, Approved, Rejected         |
+| `studentStatus`| Active, Warned, PendingDismissal, Dismissed |
 | `course`       | BSIT, BSHM, BSBA                         |
 | `year`         | 1, 2, 3, 4                               |
 | `studentNo`    | Format: `C26-01-0001-MAN121`             |
-| `contactNumber`| Exactly 11 digits                        |
+| `contactNumber`| Must start with `09` and be exactly 11 digits |
 | `password`     | Minimum 8 characters                     |
 | `username`     | Minimum 2 characters                     |
 | `age`          | Must be at least 15 years old            |
@@ -175,37 +186,74 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 
 ### Tables
 
-| Table      | Description                                                    |
-|------------|----------------------------------------------------------------|
-| Users      | All users regardless of role — guards, students, guidance, SAO |
-| Students   | Student-specific records including QR code and StudentNo       |
-| Violations | All violation records created by guards                        |
+| Table      | Description                                                                          |
+|------------|--------------------------------------------------------------------------------------|
+| Users      | All users regardless of role — guards, students, guidance, SAO. Includes `StudentNo` |
+| Students   | Student-specific records including QR code, StudentNo, and `Status` (Active, Warned, PendingDismissal, Dismissed) |
+| Violations | All violation records including `AppealText`, `AppealStatus`, and `AppealRemarks`    |
 
-> When a student registers, their data is saved to **both** the Users table and the Students table. The QR code (Base64 PNG) is generated and stored in the Students table.
+> When a student registers, their data is saved to **both** the Users table and the Students table. The QR code (Base64 PNG) is generated and stored in the Students table. `StudentNo` is saved to both tables so the JWT token can read it at login.
 
 ### Stored Procedures
 
-| Stored Procedure          | Used By        | Statement Types                                                         |
-|---------------------------|----------------|-------------------------------------------------------------------------|
-| `SP_STUDENT_GETUSERLOGIN` | LoginClass     | GETLOGIN, USEREXISTS                                                    |
-| `SP_STUDENT_REGISTRATION` | RegisterClass  | REGISTER, STUDENTNOEXISTS                                               |
+| Stored Procedure          | Used By        | Statement Types                                                                        |
+|---------------------------|----------------|----------------------------------------------------------------------------------------|
+| `SP_STUDENT_GETUSERLOGIN` | LoginClass     | GETLOGIN, USEREXISTS                                                                   |
+| `SP_STUDENT_REGISTRATION` | RegisterClass  | REGISTER, STUDENTNOEXISTS                                                              |
 | `SP_GUARD`                | GuardClass     | GETBYDATE, GETBYSTUDENT, GETSTUDENTBYQR, RECORDVIOLATION, GETALLSTUDENTS, GETSTUDENTBYNO |
-| `SP_VIOLATION`            | ViolationClass | GETALL, GETBYID, GETBYSTUDENT, RECORDVIOLATION, UPDATESTATUS, DELETE    |
-| `SP_STUDENT_DATA`         | StudentClass   | GETSTUDENT, GETALLSTUDENTS, UPDATESTUDENT                               |
-| `SP_SAO`                  | SAOClass       | GETALLUSERS, GETUSERBYID, UPDATEUSER, DELETEUSER                        |
+| `SP_VIOLATION`            | ViolationClass | GETALL, GETBYID, GETBYSTUDENT, RECORDVIOLATION, UPDATESTATUS, DELETE, SUBMITAPPEAL, UPDATEAPPEALSTATUS |
+| `SP_STUDENT_DATA`         | StudentClass   | GETSTUDENT, GETALLSTUDENTS, UPDATESTUDENT, UPDATESTATUS                                |
+| `SP_SAO`                  | SAOClass       | GETALLUSERS, GETUSERBYID, UPDATEUSER, DELETEUSER                                       |
 
 ---
 
 ## Warning Level System
 
-| Violations | Warning Level | Color  |
-|------------|---------------|--------|
-| 0          | Safe          | Green  |
-| 1          | Warning       | Yellow |
-| 2          | Danger        | Orange |
-| 3 or more  | Critical      | Red    |
+| Violations | Warning Level | Color  | Recommended Action              |
+|------------|---------------|--------|---------------------------------|
+| 0          | Safe          | Green  | No action needed                |
+| 1          | Warning       | Yellow | Issue written warning           |
+| 2          | Danger        | Orange | Call parents / schedule counseling |
+| 3 or more  | Critical      | Red    | Recommend for dismissal         |
 
-Calculated by `ViolationHelper.GetWarningLevel(int count)` — used by all 4 controllers.
+Calculated by `ViolationHelper.GetWarningLevel(int count)` and `ViolationHelper.GetRecommendedAction(int count)` — used by all controllers.
+
+---
+
+## Student Status and Dismissal Flow
+
+| Status             | Meaning                                                   |
+|--------------------|-----------------------------------------------------------|
+| `Active`           | Normal — student can log in and use all endpoints         |
+| `Warned`           | Guidance has issued a formal warning                      |
+| `PendingDismissal` | Guidance has recommended dismissal — awaiting SAO decision |
+| `Dismissed`        | SAO has confirmed dismissal — student cannot log in       |
+
+**Dismissal Flow:**
+1. Guard records 3+ violations
+2. Guidance calls `PUT /api/guidance/students/{studentNo}/recommend-dismiss` → status becomes `PendingDismissal`
+3. SAO reviews and contacts the student
+   - If reason is **not valid** → `PUT /api/sao/students/{studentNo}/dismiss` → status becomes `Dismissed`
+   - If reason is **valid** → `PUT /api/sao/students/{studentNo}/cancel-dismiss` → status goes back to `Active`
+
+---
+
+## Student Appeal Flow
+
+1. Student views their violations → `GET /api/student/violations` — note the violation `id`
+2. Student submits appeal → `POST /api/student/violations/{id}/appeal`
+   - Body: `"I was not on campus that day."`
+   - `AppealStatus` becomes `Pending`
+3. Guidance or SAO reviews the appeal:
+   - `POST /api/guidance/violations/{id}/appeal/review` or `PUT /api/sao/violations/{id}/appeal/review`
+   - Body:
+     ```json
+     {
+       "appealStatus": "Approved",
+       "appealRemarks": "Witness confirmed student was absent"
+     }
+     ```
+4. Student views violations again — can see `appeal_text`, `appeal_status`, and `appeal_remarks`
 
 ---
 
@@ -255,19 +303,32 @@ Open `appsettings.json` and update the connection string if needed:
 All schema and stored procedures are applied manually via raw SQL in SSMS.  
 No Entity Framework migrations are used in this project.
 
-**4. Update launchSettings.json with your network IP**
+**4. Apply database column additions**
+```sql
+-- Add Status to Students table
+ALTER TABLE [dbo].[Students]
+ADD [Status] VARCHAR(20) NOT NULL DEFAULT 'Active'
+
+-- Add Appeal columns to Violations table
+ALTER TABLE [dbo].[Violations]
+ADD [AppealText] VARCHAR(MAX) NULL,
+    [AppealStatus] VARCHAR(20) NOT NULL DEFAULT 'None',
+    [AppealRemarks] VARCHAR(MAX) NULL
+```
+
+**5. Update launchSettings.json with your network IP**
 ```json
 "applicationUrl": "http://YOUR_IP:5277"
 ```
 
-**5. Run the project**
+**6. Run the project**
 
 Press `F5` in Visual Studio or:
 ```bash
 dotnet run
 ```
 
-**6. Open Swagger**
+**7. Open Swagger**
 ```
 http://YOUR_IP:5277/swagger
 https://localhost:7001/swagger
@@ -291,5 +352,3 @@ Hannah's StudentNo: `C26-01-0001-MAN121`
 ## License
 
 This project is for educational purposes only — ACLC College of Mandaue, 2026.
-
-All role endpoint are properly working
