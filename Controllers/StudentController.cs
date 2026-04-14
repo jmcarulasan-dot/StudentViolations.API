@@ -138,9 +138,9 @@ namespace StudentViolations.API.Controllers
         }
         // POST api/student/violations/{id}/appeal
         [HttpPost("violations/{id}/appeal")]
-        public async Task<IActionResult> SubmitAppeal(int id, [FromBody] string appealText)
+        public async Task<IActionResult> SubmitAppeal(int id, [FromBody] SubmitAppealModel request)
         {
-            if (string.IsNullOrWhiteSpace(appealText))
+            if (request == null || string.IsNullOrWhiteSpace(request.AppealText))
                 return BadRequest(new { status = 400, message = "Appeal text is required." });
 
             string studentNo = GetLoggedInStudentNo();
@@ -158,7 +158,7 @@ namespace StudentViolations.API.Controllers
             if (violation.AppealStatus == "Pending" || violation.AppealStatus == "Approved")
                 return BadRequest(new { status = 400, message = "You have already submitted an appeal for this violation." });
 
-            var result = await _violationRepository.SubmitAppeal(id, appealText);
+            var result = await _violationRepository.SubmitAppeal(id, request.AppealText.Trim());
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
     }

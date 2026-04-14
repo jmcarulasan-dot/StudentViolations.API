@@ -8,13 +8,14 @@ using System.Data;
 
 namespace StudentViolations.API.Class
 {
-   public class RegisterClass : IRegisterRepository
+    public class RegisterClass : IRegisterRepository
     {
         private readonly string _connectionString;
         public RegisterClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
+
         public async Task<ServiceResponse<UserModel>> RegisterUser(UserModel user)
         {
             var service = new ServiceResponse<UserModel>();
@@ -22,6 +23,7 @@ namespace StudentViolations.API.Class
             try
             {
                 await connection.OpenAsync();
+
                 // Check if StudentNo already exists for student role
                 if (user.Role.Equals("Student", StringComparison.OrdinalIgnoreCase) &&
                     !string.IsNullOrEmpty(user.StudentNo))
@@ -55,7 +57,16 @@ namespace StudentViolations.API.Class
                         return service;
                     }
                 }
-                // Register user into Users table
+
+                // Generate QR code if student
+                string? qrCodeBase64 = null;
+                if (user.Role.Equals("Student", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrEmpty(user.StudentNo))
+                {
+                    qrCodeBase64 = GenerateQrCode(user.StudentNo);
+                }
+
+                // Register user — SP handles both Users and Students inserts in one transaction
                 DynamicParameters param = new DynamicParameters();
                 param.Add("@FirstName", user.FirstName);
                 param.Add("@LastName", user.LastName);
@@ -73,48 +84,11 @@ namespace StudentViolations.API.Class
                 param.Add("@Year", user.Year);
                 param.Add("@statementType", "REGISTER");
                 param.Add("@StudentNo", user.StudentNo);
+                param.Add("@QRCode", qrCodeBase64);
 
                 await connection.ExecuteAsync(
                     "SP_STUDENT_REGISTRATION", param,
                     commandType: CommandType.StoredProcedure);
-
-                // If student — also insert into Students table and generate QR code
-                if (user.Role.Equals("Student", StringComparison.OrdinalIgnoreCase))
-                {
-                    string studentSql = @"INSERT INTO Students
-                        (FirstName, LastName, Gender, ContactNumber, Email,
-                         RegistrationDate, DateOfBirth, Address, Course, Year)
-                        VALUES
-                        (@FirstName, @LastName, @Gender, @ContactNumber, @Email,
-                         @RegistrationDate, @DateOfBirth, @Address, @Course, @Year);
-                        SELECT CAST(SCOPE_IDENTITY() AS INT);";
-
-                    int newStudentId = await connection.ExecuteScalarAsync<int>(studentSql, new
-                    {
-                        user.FirstName,
-                        user.LastName,
-                        user.Gender,
-                        user.ContactNumber,
-                        user.Email,
-                        RegistrationDate = DateTime.Now,
-                        DateOfBirth = user.DateOfBirth,
-                        user.Address,
-                        user.Course,
-                        user.Year
-                    });
-
-                    string? qrCodeBase64 = null;
-                    if (!string.IsNullOrEmpty(user.StudentNo))
-                        qrCodeBase64 = GenerateQrCode(user.StudentNo);
-
-                    string updateSql = @"UPDATE Students SET StudentNo = @StudentNo, QRCode = @QRCode WHERE StudentID = @Id";
-                    await connection.ExecuteAsync(updateSql, new
-                    {
-                        StudentNo = user.StudentNo,
-                        QRCode = qrCodeBase64,
-                        Id = newStudentId
-                    });
-                }
 
                 service.Status = 200;
                 service.Message = "User registered successfully.";

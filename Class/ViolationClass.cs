@@ -14,33 +14,7 @@ namespace StudentViolations.API.Class
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
-        public async Task<ServiceResponse<bool>> RecordViolation(ViolationModel violation)
-        {
-            var service = new ServiceResponse<bool>();
-            SqlConnection connection = new SqlConnection(_connectionString);
-            try
-            {
-                await connection.OpenAsync();
-                DynamicParameters param = new DynamicParameters();
-                param.Add("@statementType", "RECORDVIOLATION");
-                param.Add("@StudentId", violation.StudentId);
-                param.Add("@ViolationName", violation.ViolationName);
-                param.Add("@Description", violation.Description);
-                param.Add("@Severity", violation.Severity);
-                param.Add("@GuardId", violation.GuardId);
-                await connection.ExecuteAsync("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
-                service.Status = 200;
-                service.Message = "Violation recorded successfully.";
-                service.Data = true;
-            }
-            catch (Exception ex)
-            {
-                service.Status = 500;
-                service.Message = $"RecordViolation error: {ex.Message}";
-            }
-            finally { connection.Close(); }
-            return service;
-        }
+
         public async Task<ServiceResponse<List<ViolationModel>>> GetViolationsByStudentId(string studentNo)
         {
             var service = new ServiceResponse<List<ViolationModel>>();
@@ -63,6 +37,7 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+
         public async Task<ServiceResponse<List<ViolationModel>>> GetAllViolations()
         {
             var service = new ServiceResponse<List<ViolationModel>>();
@@ -84,6 +59,7 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+
         public async Task<ServiceResponse<ViolationModel>> GetViolationById(int id)
         {
             var service = new ServiceResponse<ViolationModel>();
@@ -112,6 +88,7 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+
         public async Task<ServiceResponse<bool>> UpdateViolationStatus(int id, string status)
         {
             var service = new ServiceResponse<bool>();
@@ -136,6 +113,7 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+
         public async Task<ServiceResponse<bool>> DeleteViolation(int id)
         {
             var service = new ServiceResponse<bool>();

@@ -22,4 +22,8 @@
         public string AppealStatus { get; set; }
         public string? AppealRemarks { get; set; }
     }
+    public class SubmitAppealModel
+    {
+        public string AppealText { get; set; }
+    }
 }
