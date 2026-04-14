@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.Helpers;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace StudentViolations.API.Controllers
 {
@@ -17,6 +19,7 @@ namespace StudentViolations.API.Controllers
         {
             _guardRepository = guardRepository;
         }
+
         // GET api/guard/student/validate?studentNo=xxx
         [HttpGet("student/validate")]
         public async Task<IActionResult> ValidateStudent([FromQuery] string studentNo)
@@ -57,6 +60,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // POST api/guard/student/violation
         [HttpPost("student/violation")]
         public async Task<IActionResult> RecordViolation([FromBody] RecordViolationModel request)
@@ -69,11 +73,14 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Violation type is required." });
             if (string.IsNullOrWhiteSpace(request.Details))
                 return BadRequest(new { status = 400, message = "Details are required." });
-            if (string.IsNullOrWhiteSpace(request.GuardId))
-                return BadRequest(new { status = 400, message = "Guard ID is required." });
             if (string.IsNullOrWhiteSpace(request.Severity) ||
                 !ValidSeverities.Contains(request.Severity.Trim().ToLower()))
                 return BadRequest(new { status = 400, message = "Severity must be: minor, moderate, major, or critical." });
+
+            // Get GuardId from JWT token — never trust the request body for this
+            var guardId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(guardId))
+                return Unauthorized(new { status = 401, message = "Guard ID not found in token. Please login again." });
 
             request.StudentNo = request.StudentNo.Trim().ToUpper();
             request.Severity = request.Severity.Trim().ToLower();
@@ -88,7 +95,7 @@ namespace StudentViolations.API.Controllers
                 ViolationName = request.ViolationType.Trim(),
                 Description = request.Details.Trim(),
                 Severity = request.Severity,
-                GuardId = request.GuardId.Trim()
+                GuardId = guardId  // from JWT, not request body
             };
 
             var recordResult = await _guardRepository.RecordViolation(violation);
@@ -111,6 +118,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // GET api/guard/violations/summary?StartDate=xxx&EndDate=xxx
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetViolationSummary([FromQuery] GetSummaryModel request)
@@ -150,6 +158,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // GET api/guard/students
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
@@ -176,6 +185,7 @@ namespace StudentViolations.API.Controllers
                 })
             });
         }
+
         // GET api/guard/students/exist?studentNo=xxx
         [HttpGet("students/exist")]
         public async Task<IActionResult> GetStudentByStudentNo([FromQuery] string studentNo)

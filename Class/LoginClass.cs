@@ -117,15 +117,14 @@ namespace StudentViolations.API.Class
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Username),
+                new Claim(JwtRegisteredClaimNames.Sub, user.StudentID.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.StudentID.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim("name", $"{user.FirstName} {user.LastName}"),
-                new Claim("studentNo", user.StudentNo ?? "")
+                new Claim("studentNo", user.StudentNo ?? ""),
             };
-
             var token = new JwtSecurityToken(
                 issuer: jwtSettings["Issuer"],
                 audience: jwtSettings["Audience"],

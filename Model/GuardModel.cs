@@ -6,7 +6,6 @@
         public string ViolationType { get; set; }
         public string Details { get; set; }
         public string Severity { get; set; }
-        public string GuardId { get; set; }
     }
     public class GetSummaryModel
     {
