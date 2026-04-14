@@ -21,6 +21,7 @@ namespace StudentViolations.API.Controllers
             _studentRepository = studentRepository;
             _violationRepository = violationRepository;
         }
+
         // GET api/guidance/students
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
@@ -33,7 +34,6 @@ namespace StudentViolations.API.Controllers
             if (students.Count == 0)
                 return NotFound(new { status = 404, message = "No students found." });
 
-            // Get violations for each student to calculate warning level
             var studentList = new List<object>();
             foreach (var student in students)
             {
@@ -54,6 +54,7 @@ namespace StudentViolations.API.Controllers
             }
             return Ok(new { status = 200, message = "Success", total = studentList.Count, data = studentList });
         }
+
         // GET api/guidance/students/{studentNo}/report
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
@@ -101,6 +102,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // GET api/guidance/violations/by-status
         [HttpGet("violations/by-status")]
         public async Task<IActionResult> GetViolationsByStatus()
@@ -136,6 +138,7 @@ namespace StudentViolations.API.Controllers
             });
             return Ok(new { status = 200, message = "Success", total = violations.Count, data = grouped });
         }
+
         // GET api/guidance/violations/by-severity
         [HttpGet("violations/by-severity")]
         public async Task<IActionResult> GetViolationsBySeverity()
@@ -171,30 +174,6 @@ namespace StudentViolations.API.Controllers
             return Ok(new { status = 200, message = "Success", data = grouped });
         }
 
-        // POST api/guidance/violations/{id}/appeal/review
-        [HttpPost("violations/{id}/appeal/review")]
-        public async Task<IActionResult> ReviewAppeal(int id, [FromBody] AppealReviewModel request)
-        {
-            if (request == null)
-                return BadRequest(new { status = 400, message = "Request body is required." });
-            if (string.IsNullOrWhiteSpace(request.AppealStatus))
-                return BadRequest(new { status = 400, message = "Appeal status is required." });
-
-            var validStatuses = new[] { "Approved", "Rejected" };
-            if (!validStatuses.Contains(request.AppealStatus.Trim()))
-                return BadRequest(new { status = 400, message = "Appeal status must be Approved or Rejected." });
-
-            var violationResult = await _violationRepository.GetViolationById(id);
-            if (violationResult.Status != 200)
-                return StatusCode(violationResult.Status, new { status = violationResult.Status, message = violationResult.Message });
-
-            if (violationResult.Data.AppealStatus == "None")
-                return BadRequest(new { status = 400, message = "No appeal has been submitted for this violation." });
-
-            var result = await _violationRepository.UpdateAppealStatus(id, request.AppealStatus.Trim(), request.AppealRemarks?.Trim());
-            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
-        }
-        
         // PUT api/guidance/students/{studentNo}/warn
         [HttpPut("students/{studentNo}/warn")]
         public async Task<IActionResult> WarnStudent(string studentNo)
