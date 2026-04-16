@@ -57,7 +57,8 @@ builder.Services.AddSwaggerGen(c =>
         "Guidance" => "3",
         "Student" => "4",
         "Admin" => "5",
-        _ => "6"
+        "Notifications" => "6",
+        _ => "7"
     });
 
     c.DocInclusionPredicate((docName, apiDesc) => true);
@@ -101,6 +102,7 @@ builder.Services.AddScoped<IStudentRepository, StudentClass>();
 builder.Services.AddScoped<IViolationRepository, ViolationClass>();
 builder.Services.AddScoped<IGuardRepository, GuardClass>();
 builder.Services.AddScoped<ISAORepository, SAOClass>();
+builder.Services.AddScoped<INotificationRepository, NotificationClass>();
 
 var app = builder.Build();
 
@@ -113,7 +115,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
-app.UseAuthentication(); 
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

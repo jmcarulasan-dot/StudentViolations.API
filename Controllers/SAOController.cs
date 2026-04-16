@@ -17,16 +17,21 @@ namespace StudentViolations.API.Controllers
         private readonly IViolationRepository _violationRepository;
         private readonly IStudentRepository _studentRepository;
         private readonly ISAORepository _saoRepository;
+        private readonly INotificationRepository _notificationRepository;
         private static readonly string[] ValidGenders = { "male", "female" };
+
         public SAOController(
             IViolationRepository violationRepository,
             IStudentRepository studentRepository,
-            ISAORepository saoRepository)
+            ISAORepository saoRepository,
+            INotificationRepository notificationRepository)
         {
             _violationRepository = violationRepository;
             _studentRepository = studentRepository;
             _saoRepository = saoRepository;
+            _notificationRepository = notificationRepository;
         }
+
         // GET api/sao/violations
         [HttpGet("violations")]
         public async Task<IActionResult> GetAllViolations()
@@ -60,6 +65,7 @@ namespace StudentViolations.API.Controllers
                 })
             });
         }
+
         // GET api/sao/violations/by-status/{status}
         [HttpGet("violations/by-status/{status}")]
         public async Task<IActionResult> GetViolationsByStatus(string status)
@@ -98,6 +104,7 @@ namespace StudentViolations.API.Controllers
 
             return Ok(new { status = 200, message = "Success", total = filtered.Count, data = filtered });
         }
+
         // PUT api/sao/violations/{id}/approve
         [HttpPut("violations/{id}/approve")]
         public async Task<IActionResult> ApproveViolation(int id)
@@ -113,6 +120,16 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Violation is already approved." });
 
             var result = await _violationRepository.UpdateViolationStatus(id, "Approved");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            // Notify the student their violation has been approved
+            await _notificationRepository.SendToUser(
+                targetUsername: violationResult.Data.StudentNo,
+                title: "Violation Approved",
+                message: $"Your violation record for '{violationResult.Data.ViolationName}' has been approved by the SAO office."
+            );
+
             return Ok(new { status = 200, message = result.Message });
         }
 
@@ -131,8 +148,19 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Violation is already rejected." });
 
             var result = await _violationRepository.UpdateViolationStatus(id, "Rejected");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            // Notify the student their violation has been rejected
+            await _notificationRepository.SendToUser(
+                targetUsername: violationResult.Data.StudentNo,
+                title: "Violation Rejected",
+                message: $"Your violation record for '{violationResult.Data.ViolationName}' has been rejected by the SAO office."
+            );
+
             return Ok(new { status = 200, message = result.Message });
         }
+
         // DELETE api/sao/violations/{id}
         [HttpDelete("violations/{id}")]
         public async Task<IActionResult> DeleteViolation(int id)
@@ -144,7 +172,6 @@ namespace StudentViolations.API.Controllers
             if (violationResult.Status != 200)
                 return StatusCode(violationResult.Status, new { status = violationResult.Status, message = violationResult.Message });
 
-            // Capture deletion history before deleting
             var deletionRecord = new
             {
                 deleted_violation_id = violationResult.Data.ViolationID,
@@ -165,6 +192,7 @@ namespace StudentViolations.API.Controllers
 
             return Ok(new { status = 200, message = "Violation deleted successfully.", deletion_history = deletionRecord });
         }
+
         // GET api/sao/violations/summary
         [HttpGet("violations/summary")]
         public async Task<IActionResult> GetSummary()
@@ -196,6 +224,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // GET api/sao/students/{studentNo}/report
         [HttpGet("students/{studentNo}/report")]
         public async Task<IActionResult> GetStudentReport(string studentNo)
@@ -243,6 +272,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // GET api/sao/users
         [HttpGet("users")]
         public async Task<IActionResult> GetAllUsers()
@@ -275,6 +305,7 @@ namespace StudentViolations.API.Controllers
                 })
             });
         }
+
         // GET api/sao/users/{id}
         [HttpGet("users/{id}")]
         public async Task<IActionResult> GetUserById(int id)
@@ -306,6 +337,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // PUT api/sao/users/{id}
         [HttpPut("users/{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserModel request)
@@ -354,10 +386,10 @@ namespace StudentViolations.API.Controllers
                     id = updated.StudentID,
                     name = $"{updated.FirstName} {updated.LastName}",
                     email = updated.Email,
-
                 }
             });
         }
+
         // DELETE api/sao/users/{id}
         [HttpDelete("users/{id}")]
         public async Task<IActionResult> DeleteUser(int id)
@@ -396,6 +428,25 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Student has not been recommended for dismissal by Guidance." });
 
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
+
+            // Notify the student their account has been dismissed
+            await _notificationRepository.SendToUser(
+                targetUsername: studentNo,
+                title: "Account Dismissed",
+                message: "Your account has been dismissed by the SAO office. You are no longer permitted to use the system. Please contact the school for further information."
+            );
+
+            // Notify guidance that the dismissal is finalized
+            await _notificationRepository.SendToRole(
+                targetRole: "guidance",
+                title: "Dismissal Finalized",
+                message: $"SAO has finalized the dismissal of {studentName} ({studentNo})."
+            );
+
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
 
@@ -416,6 +467,16 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Student is not pending or dismissed." });
 
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Active");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            // Notify the student their dismissal has been cancelled
+            await _notificationRepository.SendToUser(
+                targetUsername: studentNo,
+                title: "Dismissal Cancelled",
+                message: "Your dismissal has been cancelled by the SAO office. Your account is now active again."
+            );
+
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
 
@@ -440,6 +501,20 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "No appeal has been submitted for this violation." });
 
             var result = await _violationRepository.UpdateAppealStatus(id, request.AppealStatus.Trim(), request.AppealRemarks?.Trim());
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            // Notify the student of the appeal outcome
+            string outcomeMessage = request.AppealStatus.Trim() == "Approved"
+                ? $"Your appeal for violation '{violationResult.Data.ViolationName}' has been approved by the SAO office."
+                : $"Your appeal for violation '{violationResult.Data.ViolationName}' has been rejected. Remarks: {request.AppealRemarks ?? "None"}";
+
+            await _notificationRepository.SendToUser(
+                targetUsername: violationResult.Data.StudentNo,
+                title: $"Appeal {request.AppealStatus.Trim()}",
+                message: outcomeMessage
+            );
+
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
     }

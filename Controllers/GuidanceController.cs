@@ -9,20 +9,26 @@ namespace StudentViolations.API.Controllers
     [ApiController]
     [Route("api/guidance")]
     [Authorize(Roles = "guidance,Guidance")]
+    [ApiExplorerSettings(GroupName = "Guidance")]
     public class GuidanceController : ControllerBase
     {
         private readonly IStudentRepository _studentRepository;
         private readonly IViolationRepository _violationRepository;
+        private readonly INotificationRepository _notificationRepository;
 
         public GuidanceController(
             IStudentRepository studentRepository,
-            IViolationRepository violationRepository)
+            IViolationRepository violationRepository,
+            INotificationRepository notificationRepository)
         {
             _studentRepository = studentRepository;
             _violationRepository = violationRepository;
+            _notificationRepository = notificationRepository;
         }
 
         // GET api/guidance/students
+        // Note: fetches violations per student in a loop (N+1).
+        // Acceptable for current scale; optimize with a batch SP if student count grows large.
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
         {
@@ -181,11 +187,23 @@ namespace StudentViolations.API.Controllers
             if (string.IsNullOrWhiteSpace(studentNo))
                 return BadRequest(new { status = 400, message = "Student number is required." });
 
-            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo.Trim().ToUpper());
+            studentNo = studentNo.Trim().ToUpper();
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
             if (studentResult.Status != 200)
                 return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Warned");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            // Notify the student they have been officially warned
+            await _notificationRepository.SendToUser(
+                targetUsername: studentNo,
+                title: "Official Warning Issued",
+                message: "You have received an official warning from the Guidance office. Please report to the Guidance office as soon as possible."
+            );
+
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
 
@@ -196,17 +214,38 @@ namespace StudentViolations.API.Controllers
             if (string.IsNullOrWhiteSpace(studentNo))
                 return BadRequest(new { status = 400, message = "Student number is required." });
 
-            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo.Trim().ToUpper());
+            studentNo = studentNo.Trim().ToUpper();
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
             if (studentResult.Status != 200)
                 return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
-            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo.Trim().ToUpper());
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
 
             if (violations.Count < 3)
                 return BadRequest(new { status = 400, message = "Student must have at least 3 violations to recommend dismissal." });
 
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "PendingDismissal");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
+
+            // Notify the student they are being recommended for dismissal
+            await _notificationRepository.SendToUser(
+                targetUsername: studentNo,
+                title: "Dismissal Recommendation",
+                message: "The Guidance office has recommended you for dismissal due to multiple violations. Please contact the SAO office immediately."
+            );
+
+            // Notify SAO to take action
+            await _notificationRepository.SendToRole(
+                targetRole: "sao",
+                title: "Dismissal Recommendation — Action Required",
+                message: $"Guidance has recommended {studentName} ({studentNo}) for dismissal. They have {violations.Count} violations on record."
+            );
+
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
     }

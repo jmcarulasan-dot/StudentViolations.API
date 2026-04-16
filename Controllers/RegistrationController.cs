@@ -18,6 +18,7 @@ namespace StudentViolations.API.Controllers
         private static readonly string[] ValidGenders = { "male", "female" };
         private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba" };
         private static readonly string[] ValidYears = { "1", "2", "3", "4" };
+
         public RegistrationController(
             ILoginRepository loginRepository,
             IRegisterRepository registerRepository)
@@ -25,6 +26,7 @@ namespace StudentViolations.API.Controllers
             _loginRepository = loginRepository;
             _registerRepository = registerRepository;
         }
+
         // POST /register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegistrationModel model)
@@ -104,7 +106,7 @@ namespace StudentViolations.API.Controllers
                 if (string.IsNullOrWhiteSpace(model.Course))
                     return BadRequest(new { status = 400, message = "Course is required for student role." });
                 if (!ValidCourses.Contains(model.Course.Trim().ToLower()))
-                    return BadRequest(new { status = 400, message = "Invalid course. Accepted: BSIT, BSHM, BSBA, BSCS, BSA." });
+                    return BadRequest(new { status = 400, message = "Invalid course. Accepted: BSIT, BSHM, BSBA." });
                 if (string.IsNullOrWhiteSpace(model.Year))
                     return BadRequest(new { status = 400, message = "Year is required for student role." });
                 if (!ValidYears.Contains(model.Year.Trim()))
@@ -147,6 +149,7 @@ namespace StudentViolations.API.Controllers
             var result = await _registerRepository.RegisterUser(newUser);
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
+
         private string GenerateSalt()
         {
             byte[] salt = new byte[16];
@@ -154,6 +157,7 @@ namespace StudentViolations.API.Controllers
                 rng.GetBytes(salt);
             return Convert.ToBase64String(salt);
         }
+
         private string HashPassword(string password, string salt)
         {
             byte[] saltBytes = Convert.FromBase64String(salt);

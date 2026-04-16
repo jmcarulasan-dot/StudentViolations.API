@@ -10,10 +10,12 @@ namespace StudentViolations.API.Class
     public class GuardClass : IGuardRepository
     {
         private readonly string _connectionString;
+
         public GuardClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
+
         public async Task<ServiceResponse<List<ViolationModel>>> GetViolationsInDateRange(DateTime startDate, DateTime endDate)
         {
             var service = new ServiceResponse<List<ViolationModel>>();
@@ -114,14 +116,9 @@ namespace StudentViolations.API.Class
                 param.Add("@Description", violation.Description);
                 param.Add("@Severity", violation.Severity);
                 param.Add("@GuardId", violation.GuardId);
-                var result = await connection.QueryAsync("SP_GUARD", param, commandType: CommandType.StoredProcedure);
-                var errorRow = result.FirstOrDefault();
-                if (errorRow != null && errorRow.ErrorMessage != null)
-                {
-                    service.Status = 400;
-                    service.Message = (string)errorRow.ErrorMessage;
-                    return service;
-                }
+
+                await connection.ExecuteAsync("SP_GUARD", param, commandType: CommandType.StoredProcedure);
+
                 service.Status = 200;
                 service.Message = "Violation recorded successfully.";
                 service.Data = true;

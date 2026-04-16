@@ -1,18 +1,20 @@
-﻿# Student Violation System API
+﻿
+# Student Violation System API & Mobile App
 
-A RESTful API for managing student violations built with **ASP.NET Core**, **Dapper**, and **SQL Server**.  
-Designed for **ACLC College of Mandaue** as a capstone project.
+A full-stack student violation tracking system built for **ACLC College of Mandaue**. 
+
+The system features a **C# ASP.NET Core REST API** paired with a **Flutter mobile app** that communicates via JWT Bearer Tokens. All business logic, password hashing, and data aggregation happen on the backend; the mobile app strictly handles UI and displays the JSON responses.
 
 ---
 
 ## Team Members
 
-| Name                  | Responsibility              |
-|-----------------------|-----------------------------|
-| Jeff Marion Carulasan | ASP.NET Core API            |
-| Hannah Maica Maningo  | Flutter Mobile App          |
-| Junamie Rivera        | MudBlazor Web App           |
-| Katrina Palag         | Documentation               |
+| Name                  | Responsibility              | Tech Stack                     |
+|-----------------------|-----------------------------|-------------------------------|
+| Jeff Marion Carulasan | ASP.NET Core API & Flutter App | C#, Dapper, SQL Server,  |
+| Hannah Maica Maningo  | Flutter Mobile App (Original)   | MudBlazor   |
+| Junamie Rivera        | MudBlazor Web App           | Flutter                |
+| Katrina Palag         | Documentation               | Markdown                       |
 
 ---
 
@@ -20,18 +22,20 @@ Designed for **ACLC College of Mandaue** as a capstone project.
 
 | Layer          | Technology                    |
 |----------------|-------------------------------|
-| Backend        | ASP.NET Core Web API (.NET 8) |
-| Language       | C#                            |
+| Backend API     | ASP.NET Core Web API (.NET 8) |
+| Backend Lang    | C#                            |
 | Database       | SQL Server LocalDB            |
 | ORM            | Dapper (Stored Procedures)    |
-| Authentication | JWT Bearer Token              |
-| Documentation  | Swagger / OpenAPI             |
-| QR Code        | QRCoder NuGet Package         |
+| Security       | JWT Bearer Token              |
+| Mobile App      | Flutter (Dart)                |
+| State Mgmt      | Provider package               |
+| QR Codes       | QRCoder (C#) & Base64 decode (Flutter) |
 | Password Hash  | PBKDF2 (HMACSHA256)           |
+| API Docs       | Swagger / OpenAPI             |
 
 ---
 
-## Project Structure
+## Backend Project Structure
 
 ```
 StudentViolations.API/
@@ -50,7 +54,7 @@ StudentViolations.API/
 │   ├── SAOController.cs
 │   └── StudentController.cs
 ├── Helpers/                    # Shared utility code
-│   └── ViolationHelper.cs      # GetWarningLevel() and GetRecommendedAction() — used by all controllers
+│   └── ViolationHelper.cs      # GetWarningLevel() and GetRecommendedAction()
 ├── IRepository/                # Interfaces — contracts for each Class
 │   ├── IGuardRepository.cs
 │   ├── ILoginRepository.cs
@@ -59,18 +63,15 @@ StudentViolations.API/
 │   ├── IStudentRepository.cs
 │   └── IViolationRepository.cs
 ├── Model/                      # Request and response models
-│   ├── GuardModel.cs           # RecordViolationModel, GetSummaryModel
 │   ├── LoginModel.cs
 │   ├── RegistrationModel.cs
-│   ├── SaoModel.cs             # UpdateUserModel
-│   ├── ServiceResponse.cs      # Generic response wrapper
-│   ├── StudentModel.cs
-│   ├── UserModel.cs
-│   └── ViolationModel.cs       # ViolationModel, AppealReviewModel
+│   ├── ServiceResponse.cs      # Generic wrapper: { status, message, data, token }
+│   ├── StudentModel.cs         # Student data: QR Code, WarningLevel, Status
+│   ├── UserModel.cs           # User data: PasswordHash, Salt, Role
+│   └── ViolationModel.cs       # Violations: AppealText, AppealStatus, Severity
 ├── Properties/
-│   └── launchSettings.json
-├── appsettings.json
-└── Program.cs
+│   └── launchSettings.json     # Network IP configuration
+└── Program.cs                   # CORS, JWT setup, DI for repositories
 ```
 
 ---
@@ -81,19 +82,16 @@ JWT Bearer Token with role-based access control. Token is valid for **8 hours** 
 
 | Role       | What They Can Do                                                                 |
 |------------|---------------------------------------------------------------------------------|
-| `Guard`    | Scan QR code, record violations, view students                                  |
+| `Guard`    | Scan QR code, record violations, view students, view date-range summaries        |
 | `Student`  | View own violations, profile, QR code, and submit appeals                       |
 | `Guidance` | View all students, reports, violations, warn students, recommend dismissal, review appeals |
 | `Sao`      | Full admin — approve/reject violations, manage users, confirm/cancel dismissal, review appeals |
 
-All protected endpoints require:
-```
-Authorization: Bearer <your_token_here>
-```
+All protected endpoints require: `Authorization: Bearer <token>`
 
-Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (full name), `studentNo`
+Token claims included: `sub`, `jti`, `nameidentifier` (StudentID), `name` (Full Name), `role`, `studentNo`.
 
-> **Note:** If a student account has been **Dismissed**, login is blocked and returns a 400 error with the message: `Your account has been dismissed. Please contact the SAO office.`
+> **Dismissal Block:** If a student account has been **Dismissed**, login is blocked and returns a 400 error with the message: `Your account has been dismissed. Please contact the SAO office.`
 
 ---
 
@@ -111,7 +109,7 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 | Method | Endpoint                        | Description                                                             |
 |--------|---------------------------------|-------------------------------------------------------------------------|
 | GET    | `/api/guard/student/validate`   | Scan QR code — returns student info, warning level, and violation history |
-| POST   | `/api/guard/student/violation`  | Record a new violation for a student                                    |
+| POST   | `/api/guard/student/violation`  | Record a new violation for a student (Backend extracts Guard ID from JWT, not request body) |
 | GET    | `/api/guard/violations/summary` | Get violation summary for a date range                                  |
 | GET    | `/api/guard/students`           | Get list of all registered students                                     |
 | GET    | `/api/guard/students/exist`     | Check if a student exists by StudentNo                                  |
@@ -122,7 +120,7 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 |--------|---------------------------------------|--------------------------------------------------------------------|
 | GET    | `/api/student/violations`             | View own violations including appeal status and remarks            |
 | GET    | `/api/student/profile`                | View own profile information                                       |
-| GET    | `/api/student/qrcode`                 | View own QR code (Base64)                                          |
+| GET    | `/api/student/qrcode`                 | View own QR code (Base64) — Flutter decodes and displays it    |
 | POST   | `/api/student/violations/{id}/appeal` | Submit an appeal for a specific violation                          |
 
 ### Guidance — `[Authorize(Roles = "guidance,Guidance")]`
@@ -140,7 +138,7 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 ### SAO (Admin) — `[Authorize(Roles = "sao,Sao")]`
 
 | Method | Endpoint                                    | Description                                         |
-|--------|---------------------------------------------|-----------------------------------------------------|
+|--------|--------------------------------------------|-----------------------------------------------------|
 | GET    | `/api/sao/violations`                       | View all violations in the system                   |
 | GET    | `/api/sao/violations/by-status/{status}`    | Filter by Pending, Approved, or Rejected            |
 | PUT    | `/api/sao/violations/{id}/approve`          | Approve a violation                                 |
@@ -158,7 +156,7 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 
 ---
 
-## Input Validation Rules
+## Input Validation Rules (Enforced by C# Backend)
 
 | Field          | Valid Values                              |
 |----------------|-------------------------------------------|
@@ -178,28 +176,28 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 
 ---
 
-## Database
+## Database Architecture
 
 **Database name:** `StudentViolations`  
 **Engine:** SQL Server LocalDB  
-**Pattern:** All queries use Stored Procedures with `@statementType` as a switch
+**Pattern:** All queries use Stored Procedures with `@statementType` as a switch.
 
 ### Tables
 
 | Table      | Description                                                                          |
 |------------|--------------------------------------------------------------------------------------|
-| Users      | All users regardless of role — guards, students, guidance, SAO. Includes `StudentNo` |
-| Students   | Student-specific records including QR code, StudentNo, and `Status` (Active, Warned, PendingDismissal, Dismissed) |
-| Violations | All violation records including `AppealText`, `AppealStatus`, and `AppealRemarks`    |
+| Users      | All users regardless of role — guards, students, guidance, SAO. Includes `StudentNo`. |
+| Students   | Student-specific records including QR code (Base64), `StudentNo`, and `Status` (Active, Warned, PendingDismissal, Dismissed). |
+| Violations | All violation records including `AppealText`, `AppealStatus`, and `AppealRemarks`. |
 
-> When a student registers, their data is saved to **both** the Users table and the Students table. The QR code (Base64 PNG) is generated and stored in the Students table. `StudentNo` is saved to both tables so the JWT token can read it at login.
+> When a student registers, their data is saved to **both** the Users table and the Students table. The QR code is generated using `QRCoder` and stored in the Students table. `StudentNo` is saved to both tables so the JWT token can read it at login.
 
 ### Stored Procedures
 
-| Stored Procedure          | Used By        | Statement Types                                                                        |
-|---------------------------|----------------|----------------------------------------------------------------------------------------|
-| `SP_STUDENT_GETUSERLOGIN` | LoginClass     | GETLOGIN, USEREXISTS                                                                   |
-| `SP_STUDENT_REGISTRATION` | RegisterClass  | REGISTER, STUDENTNOEXISTS                                                              |
+| Stored Procedure          | Used By        | Statement Types                                  |
+|---------------------------|----------------|-------------------------------------------------|
+| `SP_STUDENT_GETUSERLOGIN` | LoginClass     | GETLOGIN, USEREXISTS                               |
+| `SP_STUDENT_REGISTRATION` | RegisterClass  | REGISTER, STUDENTNOEXISTS                               |
 | `SP_GUARD`                | GuardClass     | GETBYDATE, GETBYSTUDENT, GETSTUDENTBYQR, RECORDVIOLATION, GETALLSTUDENTS, GETSTUDENTBYNO |
 | `SP_VIOLATION`            | ViolationClass | GETALL, GETBYID, GETBYSTUDENT, RECORDVIOLATION, UPDATESTATUS, DELETE, SUBMITAPPEAL, UPDATEAPPEALSTATUS |
 | `SP_STUDENT_DATA`         | StudentClass   | GETSTUDENT, GETALLSTUDENTS, UPDATESTUDENT, UPDATESTATUS                                |
@@ -209,14 +207,14 @@ Token claims included: `sub`, `jti`, `nameidentifier`, `name`, `role`, `name` (f
 
 ## Warning Level System
 
+Calculated by `ViolationHelper.GetWarningLevel(int count)` and `ViolationHelper.GetRecommendedAction(int count)` — used by all controllers.
+
 | Violations | Warning Level | Color  | Recommended Action              |
 |------------|---------------|--------|---------------------------------|
 | 0          | Safe          | Green  | No action needed                |
 | 1          | Warning       | Yellow | Issue written warning           |
 | 2          | Danger        | Orange | Call parents / schedule counseling |
 | 3 or more  | Critical      | Red    | Recommend for dismissal         |
-
-Calculated by `ViolationHelper.GetWarningLevel(int count)` and `ViolationHelper.GetRecommendedAction(int count)` — used by all controllers.
 
 ---
 
@@ -233,8 +231,8 @@ Calculated by `ViolationHelper.GetWarningLevel(int count)` and `ViolationHelper.
 1. Guard records 3+ violations
 2. Guidance calls `PUT /api/guidance/students/{studentNo}/recommend-dismiss` → status becomes `PendingDismissal`
 3. SAO reviews and contacts the student
-   - If reason is **not valid** → `PUT /api/sao/students/{studentNo}/dismiss` → status becomes `Dismissed`
-   - If reason is **valid** → `PUT /api/sao/students/{studentNo}/cancel-dismiss` → status goes back to `Active`
+   - If reason is **valid** → `PUT /api/sao/students/{studentNo}/dismiss` → status becomes `Dismissed`
+   - If reason is **not valid** → `PUT /api/sao/students/{studentNo}/cancel-dismiss` → status goes back to `Active`
 
 ---
 
@@ -242,17 +240,9 @@ Calculated by `ViolationHelper.GetWarningLevel(int count)` and `ViolationHelper.
 
 1. Student views their violations → `GET /api/student/violations` — note the violation `id`
 2. Student submits appeal → `POST /api/student/violations/{id}/appeal`
-   - Body: `"I was not on campus that day."`
-   - `AppealStatus` becomes `Pending`
 3. Guidance or SAO reviews the appeal:
    - `POST /api/guidance/violations/{id}/appeal/review` or `PUT /api/sao/violations/{id}/appeal/review`
-   - Body:
-     ```json
-     {
-       "appealStatus": "Approved",
-       "appealRemarks": "Witness confirmed student was absent"
-     }
-     ```
+   - Body: `{ "appealStatus": "Approved", "appealRemarks": "Witness confirmed student was absent" }`
 4. Student views violations again — can see `appeal_text`, `appeal_status`, and `appeal_remarks`
 
 ---
@@ -270,6 +260,18 @@ All Class methods return `ServiceResponse<T>` with these fields:
 
 ---
 
+## Mobile App (Flutter)
+
+The Flutter app connects to this API using the `http` package and manages state with the `provider` package. 
+
+**Key Architecture:**
+* **No local math is done on the mobile app.** It strictly displays the data your C# backend sends.
+* **Dynamic Data:** The app reads raw violation strings (e.g., "No ID", "No Uniform") directly from the API and displays them, meaning if you add a new violation type in the database, the app will show it without needing an app update.
+* **JWT Decoding:** The app decodes the JWT token on the client side to get the user's Name and ID to display on the dashboard.
+* **State Caching:** Uses `SharedPreferences` to save the JWT token and user session so the user stays logged in when they close the app.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -277,9 +279,11 @@ All Class methods return `ServiceResponse<T>` with these fields:
 - Visual Studio 2022
 - .NET 8 SDK
 - SQL Server / SSMS
+- Flutter SDK (Latest stable)
+- Android Studio / VS Code (for Flutter)
 - Swagger UI (built-in)
 
-### Setup
+### Backend Setup
 
 **1. Clone the repository**
 ```bash
@@ -295,7 +299,6 @@ Open `appsettings.json` and update the connection string if needed:
   "ConnectionStrings": {
     "StudentViolationsdb": "Server=(localdb)\\MSSQLLocalDB;Database=StudentViolations;Trusted_Connection=True;MultipleActiveResultSets=true"
   }
-}
 ```
 
 **3. Run all stored procedures in SSMS**
@@ -318,37 +321,54 @@ ADD [AppealText] VARCHAR(MAX) NULL,
 
 **5. Update launchSettings.json with your network IP**
 ```json
-"applicationUrl": "http://YOUR_IP:5277"
+"applicationUrl": "http://192.168.254.148:5277"
 ```
 
-**6. Run the project**
-
-Press `F5` in Visual Studio or:
-```bash
-dotnet run
-```
+**6. Run the API**
+Press `F5` in Visual Studio. Make sure you select **"StudentViolations.API (Network)"** from the play button dropdown so it runs on the network IP, not localhost.
 
 **7. Open Swagger**
 ```
-http://YOUR_IP:5277/swagger
-https://localhost:7001/swagger
+http://192.168.254.148:5277/swagger
+```
+
+### Mobile App Setup
+
+**1. Clone her repository**
+Ask Hannah for the Flutter repository link and clone it to your machine.
+
+**2. Update the Base URL**
+Open `lib/services/database_service.dart` and make sure the IP matches your backend:
+```dart
+static const String _baseUrl = 'http://192.168.254.148:5277';
+```
+
+**3. Install dependencies**
+In the Flutter terminal:
+```bash
+flutter pub get
+```
+
+**4. Run on a physical device**
+```bash
+flutter run
 ```
 
 ---
 
 ## Test Accounts
 
-| Name   | Username | Password   | Role     |
-|--------|----------|------------|----------|
-| Jeff   | jeff     | jeff123!   | Guard    |
-| Hannah | hannah   | hannah123! | Student  |
-| Juna   | juna     | juna123!   | Guidance |
-| Kath   | kath     | kath123!   | SAO      |
-
-Hannah's StudentNo: `C26-01-0001-MAN121`
+| Name   | Username | Password   | Role     | StudentNo (if student) |
+|--------|----------|------------|----------|---------------------|
+| Jeff   | jeff     | jeff123!   | Guard    | N/A                 |
+| Hannah | hannah   | hannah123! | Student  | C26-01-0001-MAN121  |
+| Juna   | juna     | juna123!   | Guidance | N/A                 |
+| Kath   | kath     | kath123!   | SAO      | N/A                 |
 
 ---
 
 ## License
 
 This project is for educational purposes only — ACLC College of Mandaue, 2026.
+```
+

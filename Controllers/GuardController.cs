@@ -4,20 +4,25 @@ using StudentViolations.API.Helpers;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/guard")]
     [Authorize(Roles = "guard,Guard")]
+    [ApiExplorerSettings(GroupName = "Guard")]
     public class GuardController : ControllerBase
     {
         private readonly IGuardRepository _guardRepository;
+        private readonly INotificationRepository _notificationRepository;
         private static readonly string[] ValidSeverities = { "minor", "moderate", "major", "critical" };
-        public GuardController(IGuardRepository guardRepository)
+
+        public GuardController(
+            IGuardRepository guardRepository,
+            INotificationRepository notificationRepository)
         {
             _guardRepository = guardRepository;
+            _notificationRepository = notificationRepository;
         }
 
         // GET api/guard/student/validate?studentNo=xxx
@@ -77,7 +82,6 @@ namespace StudentViolations.API.Controllers
                 !ValidSeverities.Contains(request.Severity.Trim().ToLower()))
                 return BadRequest(new { status = 400, message = "Severity must be: minor, moderate, major, or critical." });
 
-            // Get GuardId from JWT token — never trust the request body for this
             var guardId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(guardId))
                 return Unauthorized(new { status = 401, message = "Guard ID not found in token. Please login again." });
@@ -95,7 +99,7 @@ namespace StudentViolations.API.Controllers
                 ViolationName = request.ViolationType.Trim(),
                 Description = request.Details.Trim(),
                 Severity = request.Severity,
-                GuardId = guardId  // from JWT, not request body
+                GuardId = guardId
             };
 
             var recordResult = await _guardRepository.RecordViolation(violation);
@@ -104,6 +108,41 @@ namespace StudentViolations.API.Controllers
 
             var violationsResult = await _guardRepository.GetViolationsByStudentId(request.StudentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
+            int violationCount = violations.Count;
+            string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
+
+            // Notify the student that a violation was recorded against them
+            await _notificationRepository.SendToUser(
+                targetUsername: request.StudentNo,
+                title: "New Violation Recorded",
+                message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
+            );
+
+            // Notify guidance based on violation count thresholds
+            if (violationCount == 1)
+            {
+                await _notificationRepository.SendToRole(
+                    targetRole: "guidance",
+                    title: "Student First Violation",
+                    message: $"{studentName} ({request.StudentNo}) has received their first violation: {request.ViolationType}."
+                );
+            }
+            else if (violationCount == 2)
+            {
+                await _notificationRepository.SendToRole(
+                    targetRole: "guidance",
+                    title: "Student Second Violation",
+                    message: $"{studentName} ({request.StudentNo}) now has 2 violations. Consider scheduling counseling."
+                );
+            }
+            else if (violationCount >= 3)
+            {
+                await _notificationRepository.SendToRole(
+                    targetRole: "guidance",
+                    title: "Student At Risk — 3+ Violations",
+                    message: $"{studentName} ({request.StudentNo}) now has {violationCount} violations. Dismissal may be recommended."
+                );
+            }
 
             return Ok(new
             {
@@ -112,9 +151,9 @@ namespace StudentViolations.API.Controllers
                 data = new
                 {
                     student_no = studentResult.Data.StudentNo,
-                    name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
-                    new_violation_count = violations.Count,
-                    new_warning_level = ViolationHelper.GetWarningLevel(violations.Count)
+                    name = studentName,
+                    new_violation_count = violationCount,
+                    new_warning_level = ViolationHelper.GetWarningLevel(violationCount)
                 }
             });
         }

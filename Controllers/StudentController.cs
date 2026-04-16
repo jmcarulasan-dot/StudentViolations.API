@@ -10,22 +10,29 @@ namespace StudentViolations.API.Controllers
     [ApiController]
     [Route("api/student")]
     [Authorize(Roles = "Student,student")]
+    [ApiExplorerSettings(GroupName = "Student")]
     public class StudentController : ControllerBase
     {
         private readonly IStudentRepository _studentRepository;
         private readonly IViolationRepository _violationRepository;
+        private readonly INotificationRepository _notificationRepository;
+
         public StudentController(
             IStudentRepository studentRepository,
-            IViolationRepository violationRepository)
+            IViolationRepository violationRepository,
+            INotificationRepository notificationRepository)
         {
             _studentRepository = studentRepository;
             _violationRepository = violationRepository;
+            _notificationRepository = notificationRepository;
         }
+
         private string GetLoggedInStudentNo()
         {
             var studentNo = User.FindFirstValue("studentNo");
             return string.IsNullOrWhiteSpace(studentNo) ? string.Empty : studentNo;
         }
+
         // GET api/student/violations
         [HttpGet("violations")]
         public async Task<IActionResult> GetMyViolations()
@@ -75,6 +82,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // GET api/student/profile
         [HttpGet("profile")]
         public async Task<IActionResult> GetMyProfile()
@@ -109,6 +117,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // GET api/student/qrcode
         [HttpGet("qrcode")]
         public async Task<IActionResult> GetMyQrCode()
@@ -136,6 +145,7 @@ namespace StudentViolations.API.Controllers
                 }
             });
         }
+
         // POST api/student/violations/{id}/appeal
         [HttpPost("violations/{id}/appeal")]
         public async Task<IActionResult> SubmitAppeal(int id, [FromBody] SubmitAppealModel request)
@@ -159,6 +169,16 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "You have already submitted an appeal for this violation." });
 
             var result = await _violationRepository.SubmitAppeal(id, request.AppealText.Trim());
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            // Notify guidance that an appeal was submitted — they review appeals
+            await _notificationRepository.SendToRole(
+                targetRole: "guidance",
+                title: "New Appeal Submitted",
+                message: $"Student {studentNo} has submitted an appeal for violation #{id}: {violation.ViolationName}."
+            );
+
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
     }

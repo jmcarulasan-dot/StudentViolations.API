@@ -11,6 +11,7 @@ namespace StudentViolations.API.Class
     public class RegisterClass : IRegisterRepository
     {
         private readonly string _connectionString;
+
         public RegisterClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
@@ -24,13 +25,15 @@ namespace StudentViolations.API.Class
             {
                 await connection.OpenAsync();
 
-                // Check if StudentNo already exists for student role
+                // Check if StudentNo already exists — only pass what SP_STUDENT_REGISTRATION needs for this check
                 if (user.Role.Equals("Student", StringComparison.OrdinalIgnoreCase) &&
                     !string.IsNullOrEmpty(user.StudentNo))
                 {
                     DynamicParameters checkParam = new DynamicParameters();
                     checkParam.Add("@statementType", "STUDENTNOEXISTS");
                     checkParam.Add("@StudentNo", user.StudentNo);
+                    // SP_STUDENT_REGISTRATION requires all non-nullable params even for STUDENTNOEXISTS
+                    // so we pass the real user data here to satisfy the SP signature
                     checkParam.Add("@FirstName", user.FirstName);
                     checkParam.Add("@LastName", user.LastName);
                     checkParam.Add("@DateOfBirth", user.DateOfBirth);

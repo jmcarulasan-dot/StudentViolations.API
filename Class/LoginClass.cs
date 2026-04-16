@@ -16,11 +16,13 @@ namespace StudentViolations.API.Class
     {
         private readonly string _connectionString;
         private readonly IConfiguration _configuration;
+
         public LoginClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
             _configuration = configuration;
         }
+
         public async Task<ServiceResponse<UserModel>> Authenticate(string username, string password)
         {
             var service = new ServiceResponse<UserModel>();
@@ -44,7 +46,6 @@ namespace StudentViolations.API.Class
                     return service;
                 }
 
-                // Hash the entered password and compare with stored hash
                 string hashedPassword = HashPassword(password, result.Salt);
                 if (hashedPassword != result.PasswordHash)
                 {
@@ -117,7 +118,6 @@ namespace StudentViolations.API.Class
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.StudentID.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.StudentID.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
@@ -125,6 +125,7 @@ namespace StudentViolations.API.Class
                 new Claim("name", $"{user.FirstName} {user.LastName}"),
                 new Claim("studentNo", user.StudentNo ?? ""),
             };
+
             var token = new JwtSecurityToken(
                 issuer: jwtSettings["Issuer"],
                 audience: jwtSettings["Audience"],
@@ -136,7 +137,7 @@ namespace StudentViolations.API.Class
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // PBKDF2 password hashing — same as original project
+        // PBKDF2 password hashing
         private string HashPassword(string password, string salt)
         {
             byte[] saltBytes = Convert.FromBase64String(salt);
