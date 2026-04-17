@@ -84,5 +84,21 @@ namespace StudentViolations.API.Controllers
             await _notificationRepository.MarkAllAsRead(username, role);
             return Ok(new { status = 200, message = "All notifications marked as read." });
         }
+
+        [HttpPost("fcm-token")]
+        public async Task<IActionResult> SaveFCMToken([FromBody] FCMRequest request)
+        {
+            var username = User.FindFirstValue(ClaimTypes.Name);
+            if (string.IsNullOrEmpty(username))
+                return Unauthorized(new { status = 401, message = "User not found." });
+
+            await _notificationRepository.SaveFCMToken(username, request.FCMToken);
+            return Ok(new { status = 200, message = "Token saved." });
+        }
+
+        public class FCMRequest
+        {
+            public string FCMToken { get; set; }
+        }
     }
 }

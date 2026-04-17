@@ -10,5 +10,7 @@ namespace StudentViolations.API.IRepository
         Task SendToRole(string targetRole, string title, string message);
         Task MarkAsRead(int id);
         Task MarkAllAsRead(string username, string role);
+        Task SaveFCMToken(string username, string fcmToken);
+        Task SendPushNotification(string targetUsername, string title, string message);
     }
 }

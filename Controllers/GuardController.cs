@@ -117,6 +117,11 @@ namespace StudentViolations.API.Controllers
                 title: "New Violation Recorded",
                 message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
             );
+            await _notificationRepository.SendPushNotification(
+             targetUsername: request.StudentNo,
+             title: "New Violation Recorded",
+             message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
+             );
 
             // Notify guidance based on violation count thresholds
             if (violationCount == 1)

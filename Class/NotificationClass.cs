@@ -3,7 +3,9 @@ using Microsoft.Data.SqlClient;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using System.Data;
-
+using FirebaseAdmin.Messaging;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 namespace StudentViolations.API.Class
 {
@@ -11,9 +13,31 @@ namespace StudentViolations.API.Class
     {
         private readonly string _connectionString;
 
+        private static bool _firebaseInitialized = false;
+
         public NotificationClass(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("StudentViolationsdb");
+        }
+
+        private void EnsureFirebaseInitialized()
+        {
+            if (!_firebaseInitialized)
+            {
+                try
+                {
+                    var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "service-account.json");
+                    var credential = GoogleCredential.FromFile(path);
+
+                    FirebaseApp.Create(new AppOptions() { Credential = credential });
+                    _firebaseInitialized = true;
+                    Console.WriteLine("Firebase App Initialized successfully!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Firebase Initialization Error: {ex.Message}");
+                }
+            }
         }
 
         public async Task<List<NotificationModel>> GetByUserAndRole(string username, string role)
@@ -130,6 +154,90 @@ namespace StudentViolations.API.Class
             }
             catch { }
             finally { connection.Close(); }
+        }
+
+        public async Task SaveFCMToken(string username, string fcmToken)
+        {
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "SAVEFCMTOKEN");
+                param.Add("@TargetUsername", username);
+                param.Add("@FCMToken", fcmToken);
+
+                await connection.ExecuteAsync(
+                    "SP_NOTIFICATIONS",
+                    param,
+                    commandType: CommandType.StoredProcedure
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving FCM token: {ex.Message}");
+            }
+            finally { connection.Close(); }
+        }
+
+        public async Task SendPushNotification(string targetUsername, string title, string message)
+        {
+            EnsureFirebaseInitialized();
+            Console.WriteLine($"--- Push Notification Request Started for {targetUsername} ---");
+
+            SqlConnection connection = new SqlConnection(_connectionString);
+            string token = null;
+
+            try
+            {
+                await connection.OpenAsync();
+                var param = new DynamicParameters();
+                param.Add("@statementType", "GETFCMTOKEN");
+                param.Add("@TargetUsername", targetUsername);
+
+                token = await connection.QueryFirstOrDefaultAsync<string>(
+                    "SP_NOTIFICATIONS", param, commandType: CommandType.StoredProcedure);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SQL Error getting token: {ex.Message}");
+                return;
+            }
+            finally { connection.Close(); }
+
+            string status = string.IsNullOrEmpty(token) ? "Yes" : "No";
+            Console.WriteLine($"Token Retrieved: {status}");
+            if (string.IsNullOrEmpty(token)) return; 
+
+            try
+            {
+                Console.WriteLine("Sending to Firebase...");
+
+                var messagePayload = new Message()
+                {
+                    Token = token,
+                    Notification = new Notification()
+                    {
+                        Title = title,
+                        Body = message
+                    },
+                    Android = new AndroidConfig()
+                    {
+                        Priority = Priority.High,
+                        Notification = new AndroidNotification()
+                        {
+                            Sound = "default"
+                        }
+                    }
+                };
+
+                await FirebaseMessaging.DefaultInstance.SendAsync(messagePayload);
+                Console.WriteLine("✅ Push notification sent!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Firebase Error: {ex.Message}");
+            }
         }
     }
 }
