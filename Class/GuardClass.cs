@@ -186,5 +186,34 @@ namespace StudentViolations.API.Class
             }
             return service;
         }
+        public async Task<ServiceResponse<string>> GetUsernameByStudentNo(string studentNo)
+        {
+            var service = new ServiceResponse<string>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "GETUSERNAMEBYNO");
+                param.Add("@StudentNo", studentNo);
+                var result = await connection.QueryFirstOrDefaultAsync<string>(
+                    "SP_GUARD", param, commandType: CommandType.StoredProcedure);
+                if (result == null)
+                {
+                    service.Status = 404;
+                    service.Message = "Username not found.";
+                    return service;
+                }
+                service.Status = 200;
+                service.Data = result;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"GetUsernameByStudentNo error: {ex.Message}";
+            }
+            finally { connection.Close(); }
+            return service;
+        }
     }
 }

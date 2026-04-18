@@ -205,7 +205,7 @@ namespace StudentViolations.API.Class
             }
             finally { connection.Close(); }
 
-            string status = string.IsNullOrEmpty(token) ? "Yes" : "No";
+            string status = string.IsNullOrEmpty(token) ? "No" : "Yes";
             Console.WriteLine($"Token Retrieved: {status}");
             if (string.IsNullOrEmpty(token)) return; 
 

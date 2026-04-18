@@ -111,19 +111,20 @@ namespace StudentViolations.API.Controllers
             int violationCount = violations.Count;
             string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
 
-            // Notify the student that a violation was recorded against them
+            var usernameResult = await _guardRepository.GetUsernameByStudentNo(request.StudentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : request.StudentNo;
+
             await _notificationRepository.SendToUser(
-                targetUsername: request.StudentNo,
+                targetUsername: studentUsername,
                 title: "New Violation Recorded",
                 message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
             );
             await _notificationRepository.SendPushNotification(
-             targetUsername: request.StudentNo,
-             title: "New Violation Recorded",
-             message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
-             );
+                targetUsername: studentUsername,
+                title: "New Violation Recorded",
+                message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
+            );
 
-            // Notify guidance based on violation count thresholds
             if (violationCount == 1)
             {
                 await _notificationRepository.SendToRole(

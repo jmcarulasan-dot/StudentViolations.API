@@ -11,5 +11,6 @@ namespace StudentViolations.API.IRepository
         Task<ServiceResponse<bool>> RecordViolation(ViolationModel violation);
         Task<ServiceResponse<List<StudentModel>>> GetAllStudents();
         Task<ServiceResponse<StudentModel>> GetStudentByStudentNo(string studentNo);
+        Task<ServiceResponse<string>> GetUsernameByStudentNo(string studentNo);
     }
 }
