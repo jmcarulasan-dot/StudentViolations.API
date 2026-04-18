@@ -197,9 +197,16 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            // Notify the student they have been officially warned
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
+
             await _notificationRepository.SendToUser(
-                targetUsername: studentNo,
+                targetUsername: studentUsername,
+                title: "Official Warning Issued",
+                message: "You have received an official warning from the Guidance office. Please report to the Guidance office as soon as possible."
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
                 title: "Official Warning Issued",
                 message: "You have received an official warning from the Guidance office. Please report to the Guidance office as soon as possible."
             );
@@ -207,7 +214,6 @@ namespace StudentViolations.API.Controllers
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
 
-        // PUT api/guidance/students/{studentNo}/recommend-dismiss
         [HttpPut("students/{studentNo}/recommend-dismiss")]
         public async Task<IActionResult> RecommendDismissal(string studentNo)
         {
@@ -232,14 +238,20 @@ namespace StudentViolations.API.Controllers
 
             string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
 
-            // Notify the student they are being recommended for dismissal
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
+
             await _notificationRepository.SendToUser(
-                targetUsername: studentNo,
+                targetUsername: studentUsername,
+                title: "Dismissal Recommendation",
+                message: "The Guidance office has recommended you for dismissal due to multiple violations. Please contact the SAO office immediately."
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
                 title: "Dismissal Recommendation",
                 message: "The Guidance office has recommended you for dismissal due to multiple violations. Please contact the SAO office immediately."
             );
 
-            // Notify SAO to take action
             await _notificationRepository.SendToRole(
                 targetRole: "sao",
                 title: "Dismissal Recommendation — Action Required",

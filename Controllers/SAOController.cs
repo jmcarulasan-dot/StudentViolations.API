@@ -123,9 +123,16 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            // Notify the student their violation has been approved
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(violationResult.Data.StudentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : violationResult.Data.StudentNo;
+
             await _notificationRepository.SendToUser(
-                targetUsername: violationResult.Data.StudentNo,
+                targetUsername: studentUsername,
+                title: "Violation Approved",
+                message: $"Your violation record for '{violationResult.Data.ViolationName}' has been approved by the SAO office."
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
                 title: "Violation Approved",
                 message: $"Your violation record for '{violationResult.Data.ViolationName}' has been approved by the SAO office."
             );
@@ -151,9 +158,16 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            // Notify the student their violation has been rejected
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(violationResult.Data.StudentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : violationResult.Data.StudentNo;
+
             await _notificationRepository.SendToUser(
-                targetUsername: violationResult.Data.StudentNo,
+                targetUsername: studentUsername,
+                title: "Violation Rejected",
+                message: $"Your violation record for '{violationResult.Data.ViolationName}' has been rejected by the SAO office."
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
                 title: "Violation Rejected",
                 message: $"Your violation record for '{violationResult.Data.ViolationName}' has been rejected by the SAO office."
             );
@@ -433,14 +447,20 @@ namespace StudentViolations.API.Controllers
 
             string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
 
-            // Notify the student their account has been dismissed
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
+
             await _notificationRepository.SendToUser(
-                targetUsername: studentNo,
+                targetUsername: studentUsername,
+                title: "Account Dismissed",
+                message: "Your account has been dismissed by the SAO office. You are no longer permitted to use the system. Please contact the school for further information."
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
                 title: "Account Dismissed",
                 message: "Your account has been dismissed by the SAO office. You are no longer permitted to use the system. Please contact the school for further information."
             );
 
-            // Notify guidance that the dismissal is finalized
             await _notificationRepository.SendToRole(
                 targetRole: "guidance",
                 title: "Dismissal Finalized",
@@ -470,9 +490,16 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            // Notify the student their dismissal has been cancelled
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
+
             await _notificationRepository.SendToUser(
-                targetUsername: studentNo,
+                targetUsername: studentUsername,
+                title: "Dismissal Cancelled",
+                message: "Your dismissal has been cancelled by the SAO office. Your account is now active again."
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
                 title: "Dismissal Cancelled",
                 message: "Your dismissal has been cancelled by the SAO office. Your account is now active again."
             );
@@ -504,13 +531,20 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            // Notify the student of the appeal outcome
             string outcomeMessage = request.AppealStatus.Trim() == "Approved"
                 ? $"Your appeal for violation '{violationResult.Data.ViolationName}' has been approved by the SAO office."
                 : $"Your appeal for violation '{violationResult.Data.ViolationName}' has been rejected. Remarks: {request.AppealRemarks ?? "None"}";
 
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(violationResult.Data.StudentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : violationResult.Data.StudentNo;
+
             await _notificationRepository.SendToUser(
-                targetUsername: violationResult.Data.StudentNo,
+                targetUsername: studentUsername,
+                title: $"Appeal {request.AppealStatus.Trim()}",
+                message: outcomeMessage
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
                 title: $"Appeal {request.AppealStatus.Trim()}",
                 message: outcomeMessage
             );

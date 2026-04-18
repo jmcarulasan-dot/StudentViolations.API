@@ -157,7 +157,6 @@ namespace StudentViolations.API.Controllers
             if (string.IsNullOrEmpty(studentNo))
                 return Unauthorized(new { status = 401, message = "Student number not found in token. Please login again." });
 
-            // Check if violation belongs to this student
             var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
             var violation = violations.FirstOrDefault(v => v.ViolationID == id);
@@ -172,9 +171,16 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            // Notify guidance that an appeal was submitted — they review appeals
+            // Notify guidance that an appeal was submitted
             await _notificationRepository.SendToRole(
                 targetRole: "guidance",
+                title: "New Appeal Submitted",
+                message: $"Student {studentNo} has submitted an appeal for violation #{id}: {violation.ViolationName}."
+            );
+
+            // Notify SAO as well
+            await _notificationRepository.SendToRole(
+                targetRole: "sao",
                 title: "New Appeal Submitted",
                 message: $"Student {studentNo} has submitted an appeal for violation #{id}: {violation.ViolationName}."
             );
