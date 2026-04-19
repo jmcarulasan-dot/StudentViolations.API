@@ -260,5 +260,74 @@ namespace StudentViolations.API.Controllers
 
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
+        // GET api/guidance/violations/appeals
+        [HttpGet("violations/appeals")]
+        public async Task<IActionResult> GetPendingAppeals()
+        {
+            var result = await _violationRepository.GetAllViolations();
+            var violations = result.Data ?? new List<ViolationModel>();
+
+            var pendingAppeals = violations
+                .Where(v => v.AppealStatus == "Pending")
+                .Select(v => new
+                {
+                    id = v.ViolationID,
+                    student_no = v.StudentNo,
+                    type = v.ViolationName,
+                    severity = v.Severity,
+                    date = v.ViolationDate,
+                    status = v.Status,
+                    appeal_text = v.AppealText,
+                    appeal_status = v.AppealStatus,
+                    recorded_by = v.GuardName
+                });
+
+            return Ok(new { status = 200, data = pendingAppeals });
+        }
+
+        [HttpPost("violations/{id}/appeal/review")]
+        public async Task<IActionResult> ReviewAppeal(int id, [FromBody] AppealReviewModel request)
+        {
+            if (request == null)
+                return BadRequest(new { status = 400, message = "Request body is required." });
+            if (string.IsNullOrWhiteSpace(request.AppealStatus))
+                return BadRequest(new { status = 400, message = "Appeal status is required." });
+
+            var validStatuses = new[] { "Approved", "Rejected" };
+            if (!validStatuses.Contains(request.AppealStatus.Trim()))
+                return BadRequest(new { status = 400, message = "Appeal status must be Approved or Rejected." });
+
+            var violationResult = await _violationRepository.GetViolationById(id);
+            if (violationResult.Status != 200)
+                return StatusCode(violationResult.Status, new { status = violationResult.Status, message = violationResult.Message });
+
+            if (violationResult.Data.AppealStatus == "None")
+                return BadRequest(new { status = 400, message = "No appeal has been submitted for this violation." });
+
+            var result = await _violationRepository.UpdateAppealStatus(
+                id, request.AppealStatus.Trim(), request.AppealRemarks?.Trim());
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            string outcomeMessage = request.AppealStatus.Trim() == "Approved"
+                ? $"Your appeal for violation '{violationResult.Data.ViolationName}' has been approved by the Guidance office."
+                : $"Your appeal for violation '{violationResult.Data.ViolationName}' has been rejected. Remarks: {request.AppealRemarks ?? "None"}";
+
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(violationResult.Data.StudentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : violationResult.Data.StudentNo;
+
+            await _notificationRepository.SendToUser(
+                targetUsername: studentUsername,
+                title: $"Appeal {request.AppealStatus.Trim()}",
+                message: outcomeMessage
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
+                title: $"Appeal {request.AppealStatus.Trim()}",
+                message: outcomeMessage
+            );
+
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+        }
     }
 }

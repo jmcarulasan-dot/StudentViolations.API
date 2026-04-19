@@ -551,5 +551,43 @@ namespace StudentViolations.API.Controllers
 
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
+        // GET api/sao/violations/appeals
+        [HttpGet("violations/appeals")]
+        public async Task<IActionResult> GetPendingAppeals()
+        {
+            var result = await _violationRepository.GetAllViolations();
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            var violations = result.Data ?? new List<ViolationModel>();
+
+            var studentsResult = await _studentRepository.GetAllStudents();
+            var students = studentsResult.Data ?? new List<StudentModel>();
+
+            var pendingAppeals = violations
+                .Where(v => v.AppealStatus == "Pending")
+                .Select(v => new {
+                    id = v.ViolationID,
+                    student_no = students.FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
+                    type = v.ViolationName,
+                    severity = v.Severity,
+                    date = v.ViolationDate,
+                    status = v.Status,
+                    appeal_text = v.AppealText,
+                    appeal_status = v.AppealStatus,
+                    recorded_by = v.GuardName
+                }).ToList();
+
+            if (pendingAppeals.Count == 0)
+                return NotFound(new { status = 404, message = "No pending appeals found." });
+
+            return Ok(new
+            {
+                status = 200,
+                message = "Success",
+                total = pendingAppeals.Count,
+                data = pendingAppeals
+            });
+        }
     }
 }
