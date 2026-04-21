@@ -7,7 +7,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS — allows Flutter, Blazor, PHP to call the API from any origin
+// CORS — allows Flutter, Blazor to call the API from any origin
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>

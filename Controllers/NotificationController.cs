@@ -19,7 +19,6 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET /api/notifications
-        // Returns all notifications for the logged-in user (direct + role-broadcast)
         [HttpGet]
         public async Task<IActionResult> GetMyNotifications()
         {
@@ -42,7 +41,6 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET /api/notifications/unread-count
-        // Returns unread count only — useful for Flutter badge display
         [HttpGet("unread-count")]
         public async Task<IActionResult> GetUnreadCount()
         {
@@ -62,7 +60,6 @@ namespace StudentViolations.API.Controllers
         }
 
         // PUT /api/notifications/{id}/read
-        // Marks a single notification as read
         [HttpPut("{id}/read")]
         public async Task<IActionResult> MarkAsRead(int id)
         {
@@ -71,7 +68,6 @@ namespace StudentViolations.API.Controllers
         }
 
         // PUT /api/notifications/read-all
-        // Marks all notifications as read for the logged-in user
         [HttpPut("read-all")]
         public async Task<IActionResult> MarkAllAsRead()
         {

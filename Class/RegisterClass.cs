@@ -25,15 +25,13 @@ namespace StudentViolations.API.Class
             {
                 await connection.OpenAsync();
 
-                // Check if StudentNo already exists — only pass what SP_STUDENT_REGISTRATION needs for this check
+                // Check if StudentNo already exists 
                 if (user.Role.Equals("Student", StringComparison.OrdinalIgnoreCase) &&
                     !string.IsNullOrEmpty(user.StudentNo))
                 {
                     DynamicParameters checkParam = new DynamicParameters();
                     checkParam.Add("@statementType", "STUDENTNOEXISTS");
                     checkParam.Add("@StudentNo", user.StudentNo);
-                    // SP_STUDENT_REGISTRATION requires all non-nullable params even for STUDENTNOEXISTS
-                    // so we pass the real user data here to satisfy the SP signature
                     checkParam.Add("@FirstName", user.FirstName);
                     checkParam.Add("@LastName", user.LastName);
                     checkParam.Add("@DateOfBirth", user.DateOfBirth);
@@ -69,7 +67,7 @@ namespace StudentViolations.API.Class
                     qrCodeBase64 = GenerateQrCode(user.StudentNo);
                 }
 
-                // Register user — SP handles both Users and Students inserts in one transaction
+                // Register user
                 DynamicParameters param = new DynamicParameters();
                 param.Add("@FirstName", user.FirstName);
                 param.Add("@LastName", user.LastName);

@@ -90,6 +90,7 @@ namespace StudentViolations.API.Controllers
                     date_of_birth = studentResult.Data.DateOfBirth,
                     course = studentResult.Data.Course,
                     year = studentResult.Data.Year,
+                    status = studentResult.Data.Status,
                     violation_count = violations.Count,
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                     recommended_action = ViolationHelper.GetRecommendedAction(violations.Count),
@@ -175,6 +176,7 @@ namespace StudentViolations.API.Controllers
 
             return Ok(new { status = 200, message = "Success", data = grouped });
         }
+
         // PUT api/guidance/students/{studentNo}/warn
         [HttpPut("students/{studentNo}/warn")]
         public async Task<IActionResult> WarnStudent(string studentNo)
@@ -209,6 +211,7 @@ namespace StudentViolations.API.Controllers
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
 
+        // PUT api/guidance/students/{studentNo}/recommend-dismiss
         [HttpPut("students/{studentNo}/recommend-dismiss")]
         public async Task<IActionResult> RecommendDismissal(string studentNo)
         {
@@ -255,6 +258,7 @@ namespace StudentViolations.API.Controllers
 
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
+
         // GET api/guidance/violations/appeals
         [HttpGet("violations/appeals")]
         public async Task<IActionResult> GetPendingAppeals()
@@ -279,7 +283,7 @@ namespace StudentViolations.API.Controllers
 
             return Ok(new { status = 200, data = pendingAppeals });
         }
-
+        // PUT api/guidance/violations/{id}/appeal/review
         [HttpPut("violations/{id}/appeal/review")]
         public async Task<IActionResult> ReviewAppeal(int id, [FromBody] AppealReviewModel request)
         {

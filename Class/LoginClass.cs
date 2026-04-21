@@ -46,18 +46,18 @@ namespace StudentViolations.API.Class
                     return service;
                 }
 
+                if (result.Status == "Dismissed")
+                {
+                    service.Status = 400;
+                    service.Message = "Your account has been dismissed. Please contact the SAO office.";
+                    return service;
+                }
+
                 string hashedPassword = HashPassword(password, result.Salt);
                 if (hashedPassword != result.PasswordHash)
                 {
                     service.Status = 400;
                     service.Message = "Invalid username or password.";
-                    return service;
-                }
-
-                if (result.Status == "Dismissed")
-                {
-                    service.Status = 400;
-                    service.Message = "Your account has been dismissed. Please contact the SAO office.";
                     return service;
                 }
 

@@ -112,6 +112,7 @@ namespace StudentViolations.API.Controllers
                     year = studentResult.Data.Year,
                     contact_number = studentResult.Data.ContactNumber,
                     address = studentResult.Data.Address,
+                    status = studentResult.Data.Status,
                     total_violations = violations.Count,
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count)
                 }
@@ -171,14 +172,12 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            // Notify guidance that an appeal was submitted
             await _notificationRepository.SendToRole(
                 targetRole: "guidance",
                 title: "New Appeal Submitted",
                 message: $"Student {studentNo} has submitted an appeal for violation #{id}: {violation.ViolationName}."
             );
 
-            // Notify SAO as well
             await _notificationRepository.SendToRole(
                 targetRole: "sao",
                 title: "New Appeal Submitted",
