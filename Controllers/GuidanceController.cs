@@ -27,8 +27,6 @@ namespace StudentViolations.API.Controllers
         }
 
         // GET api/guidance/students
-        // Note: fetches violations per student in a loop (N+1).
-        // Acceptable for current scale; optimize with a batch SP if student count grows large.
         [HttpGet("students")]
         public async Task<IActionResult> GetAllStudents()
         {
@@ -157,9 +155,6 @@ namespace StudentViolations.API.Controllers
             if (violations.Count == 0)
                 return NotFound(new { status = 404, message = "No violations found." });
 
-            var studentsResult = await _studentRepository.GetAllStudents();
-            var students = studentsResult.Data ?? new List<StudentModel>();
-
             var grouped = violations
                 .GroupBy(v => v.Severity)
                 .Select(g => new
@@ -169,7 +164,7 @@ namespace StudentViolations.API.Controllers
                     violations = g.Select(v => new
                     {
                         id = v.ViolationID,
-                        student_no = students.FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
+                        student_no = v.StudentNo,
                         type = v.ViolationName,
                         details = v.Description,
                         date = v.ViolationDate,
@@ -177,9 +172,9 @@ namespace StudentViolations.API.Controllers
                         recorded_by = v.GuardName
                     })
                 });
+
             return Ok(new { status = 200, message = "Success", data = grouped });
         }
-
         // PUT api/guidance/students/{studentNo}/warn
         [HttpPut("students/{studentNo}/warn")]
         public async Task<IActionResult> WarnStudent(string studentNo)
@@ -285,7 +280,7 @@ namespace StudentViolations.API.Controllers
             return Ok(new { status = 200, data = pendingAppeals });
         }
 
-        [HttpPost("violations/{id}/appeal/review")]
+        [HttpPut("violations/{id}/appeal/review")]
         public async Task<IActionResult> ReviewAppeal(int id, [FromBody] AppealReviewModel request)
         {
             if (request == null)

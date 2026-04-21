@@ -44,9 +44,6 @@ namespace StudentViolations.API.Controllers
             if (violations.Count == 0)
                 return NotFound(new { status = 404, message = "No violations found." });
 
-            var studentsResult = await _studentRepository.GetAllStudents();
-            var students = studentsResult.Data ?? new List<StudentModel>();
-
             return Ok(new
             {
                 status = 200,
@@ -55,7 +52,7 @@ namespace StudentViolations.API.Controllers
                 data = violations.Select(v => new
                 {
                     id = v.ViolationID,
-                    student_no = students.FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
+                    student_no = v.StudentNo,
                     type = v.ViolationName,
                     details = v.Description,
                     severity = v.Severity,
@@ -82,15 +79,12 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
-            var studentsResult = await _studentRepository.GetAllStudents();
-            var students = studentsResult.Data ?? new List<StudentModel>();
-
             var filtered = (result.Data ?? new List<ViolationModel>())
                 .Where(v => v.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
                 .Select(v => new
                 {
                     id = v.ViolationID,
-                    student_no = students.FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
+                    student_no = v.StudentNo,
                     type = v.ViolationName,
                     details = v.Description,
                     severity = v.Severity,
@@ -551,6 +545,7 @@ namespace StudentViolations.API.Controllers
 
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
+
         // GET api/sao/violations/appeals
         [HttpGet("violations/appeals")]
         public async Task<IActionResult> GetPendingAppeals()
@@ -561,14 +556,11 @@ namespace StudentViolations.API.Controllers
 
             var violations = result.Data ?? new List<ViolationModel>();
 
-            var studentsResult = await _studentRepository.GetAllStudents();
-            var students = studentsResult.Data ?? new List<StudentModel>();
-
             var pendingAppeals = violations
                 .Where(v => v.AppealStatus == "Pending")
                 .Select(v => new {
                     id = v.ViolationID,
-                    student_no = students.FirstOrDefault(s => s.StudentID == v.StudentId)?.StudentNo,
+                    student_no = v.StudentNo,
                     type = v.ViolationName,
                     severity = v.Severity,
                     date = v.ViolationDate,

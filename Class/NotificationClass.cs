@@ -35,7 +35,7 @@ namespace StudentViolations.API.Class
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Firebase Initialization Error: {ex.Message}");
+                    Console.WriteLine($"Notification error: {ex.Message}");
                 }
             }
         }
@@ -98,7 +98,7 @@ namespace StudentViolations.API.Class
                 await connection.ExecuteAsync(
                     "SP_NOTIFICATIONS", param, commandType: CommandType.StoredProcedure);
             }
-            catch { }
+            catch (Exception ex) { Console.WriteLine($"Notification error: {ex.Message}"); }
             finally { connection.Close(); }
         }
 
@@ -117,7 +117,7 @@ namespace StudentViolations.API.Class
                 await connection.ExecuteAsync(
                     "SP_NOTIFICATIONS", param, commandType: CommandType.StoredProcedure);
             }
-            catch { }
+            catch (Exception ex) { Console.WriteLine($"Notification error: {ex.Message}"); }
             finally { connection.Close(); }
         }
 
@@ -134,7 +134,7 @@ namespace StudentViolations.API.Class
                 await connection.ExecuteAsync(
                     "SP_NOTIFICATIONS", param, commandType: CommandType.StoredProcedure);
             }
-            catch { }
+            catch (Exception ex) { Console.WriteLine($"Notification error: {ex.Message}"); }
             finally { connection.Close(); }
         }
 
@@ -152,7 +152,7 @@ namespace StudentViolations.API.Class
                 await connection.ExecuteAsync(
                     "SP_NOTIFICATIONS", param, commandType: CommandType.StoredProcedure);
             }
-            catch { }
+            catch (Exception ex) { Console.WriteLine($"Notification error: {ex.Message}"); }
             finally { connection.Close(); }
         }
 
@@ -173,10 +173,7 @@ namespace StudentViolations.API.Class
                     commandType: CommandType.StoredProcedure
                 );
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error saving FCM token: {ex.Message}");
-            }
+            catch (Exception ex) { Console.WriteLine($"Notification error: {ex.Message}"); }
             finally { connection.Close(); }
         }
 
@@ -200,14 +197,14 @@ namespace StudentViolations.API.Class
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"SQL Error getting token: {ex.Message}");
+                Console.WriteLine($"Notification error: {ex.Message}");
                 return;
             }
             finally { connection.Close(); }
 
             string status = string.IsNullOrEmpty(token) ? "No" : "Yes";
             Console.WriteLine($"Token Retrieved: {status}");
-            if (string.IsNullOrEmpty(token)) return; 
+            if (string.IsNullOrEmpty(token)) return;
 
             try
             {
@@ -232,11 +229,11 @@ namespace StudentViolations.API.Class
                 };
 
                 await FirebaseMessaging.DefaultInstance.SendAsync(messagePayload);
-                Console.WriteLine("✅ Push notification sent!");
+                Console.WriteLine("Push notification sent!");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Firebase Error: {ex.Message}");
+                Console.WriteLine($"Notification error: {ex.Message}");
             }
         }
     }
