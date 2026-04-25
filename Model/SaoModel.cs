@@ -9,4 +9,14 @@
         public string? Gender { get; set; }
         public string? Address { get; set; }
     }
+    public class PendingDismissalModel
+    {
+        public int StudentID { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? StudentNo { get; set; }
+        public string? Course { get; set; }
+        public int Year { get; set; }
+        public string? Status { get; set; }
+    }
 }

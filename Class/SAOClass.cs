@@ -115,5 +115,26 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+        public async Task<ServiceResponse<List<PendingDismissalModel>>> GetPendingDismissals()
+        {
+            var service = new ServiceResponse<List<PendingDismissalModel>>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "GETPENDINGDISMISSAL");
+                var result = await connection.QueryAsync<PendingDismissalModel>("SP_SAO", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = result.ToList();
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"GetPendingDismissals error: {ex.Message}";
+            }
+            finally { connection.Close(); }
+            return service;
+        }
     }
 }

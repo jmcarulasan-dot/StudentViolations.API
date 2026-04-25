@@ -416,6 +416,13 @@ namespace StudentViolations.API.Controllers
             return Ok(new { status = 200, message = $"User {userResult.Data.Username} deleted successfully." });
         }
 
+        [HttpGet("students/pending-dismissal")]
+        public async Task<IActionResult> GetPendingDismissals()
+        {
+            var result = await _saoRepository.GetPendingDismissals();
+            return StatusCode(result.Status, result.Status == 200 ? result.Data : result.Message);
+        }
+
         // PUT api/sao/students/{studentNo}/dismiss
         [HttpPut("students/{studentNo}/dismiss")]
         public async Task<IActionResult> DismissStudent(string studentNo)
