@@ -420,7 +420,15 @@ namespace StudentViolations.API.Controllers
         public async Task<IActionResult> GetPendingDismissals()
         {
             var result = await _saoRepository.GetPendingDismissals();
-            return StatusCode(result.Status, result.Status == 200 ? result.Data : result.Message);
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            return Ok(new
+            {
+                status = 200,
+                message = "Success",
+                data = result.Data
+            });
         }
 
         // PUT api/sao/students/{studentNo}/dismiss

@@ -6,6 +6,9 @@
 		<UserSecretsId>76860341-7297-45da-931f-c62434e93f61</UserSecretsId>
 	</PropertyGroup>
 	<ItemGroup>
+	  <Content Include="Properties\launchSettings.json" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="Dapper" Version="2.1.72" />
 		<PackageReference Include="FirebaseAdmin" Version="3.5.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
