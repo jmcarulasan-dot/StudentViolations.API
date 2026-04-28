@@ -431,54 +431,6 @@ namespace StudentViolations.API.Controllers
             });
         }
 
-        // PUT api/sao/students/{studentNo}/dismiss
-        [HttpPut("students/{studentNo}/dismiss")]
-        public async Task<IActionResult> DismissStudent(string studentNo)
-        {
-            if (string.IsNullOrWhiteSpace(studentNo))
-                return BadRequest(new { status = 400, message = "Student number is required." });
-
-            studentNo = studentNo.Trim().ToUpper();
-
-            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
-            if (studentResult.Status != 200)
-                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
-
-            if (studentResult.Data.Status == "Dismissed")
-                return BadRequest(new { status = 400, message = "Student is already dismissed." });
-
-            if (studentResult.Data.Status != "PendingDismissal")
-                return BadRequest(new { status = 400, message = "Student has not been recommended for dismissal by Guidance." });
-
-            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
-            if (result.Status != 200)
-                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
-
-            string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
-
-            var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
-            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
-
-            await _notificationRepository.SendToUser(
-                targetUsername: studentUsername,
-                title: "Account Dismissed",
-                message: "Your account has been dismissed by the SAO office. You are no longer permitted to use the system. Please contact the school for further information."
-            );
-            await _notificationRepository.SendPushNotification(
-                targetUsername: studentUsername,
-                title: "Account Dismissed",
-                message: "Your account has been dismissed by the SAO office. You are no longer permitted to use the system. Please contact the school for further information."
-            );
-
-            await _notificationRepository.SendToRole(
-                targetRole: "guidance",
-                title: "Dismissal Finalized",
-                message: $"SAO has finalized the dismissal of {studentName} ({studentNo})."
-            );
-
-            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
-        }
-
         // PUT api/sao/students/{studentNo}/cancel-dismiss
         [HttpPut("students/{studentNo}/cancel-dismiss")]
         public async Task<IActionResult> CancelDismissal(string studentNo)
@@ -511,6 +463,68 @@ namespace StudentViolations.API.Controllers
                 targetUsername: studentUsername,
                 title: "Dismissal Cancelled",
                 message: "Your dismissal has been cancelled by the SAO office. Your account is now active again."
+            );
+
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+        }
+
+        // GET api/sao/students/dismissed
+        [HttpGet("students/dismissed")]
+        public async Task<IActionResult> GetDismissedStudents()
+        {
+            var result = await _saoRepository.GetDismissedStudents();
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            return Ok(new { status = 200, message = "Success", data = result.Data });
+        }
+
+        // PUT api/sao/students/{studentNo}/dismiss
+        [HttpPut("students/{studentNo}/dismiss")]
+        public async Task<IActionResult> DismissStudent(string studentNo)
+        {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 400, message = "Student number is required." });
+
+            studentNo = studentNo.Trim().ToUpper();
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
+
+            if (studentResult.Data.Status == "Dismissed")
+                return BadRequest(new { status = 400, message = "Student is already dismissed." });
+
+            if (studentResult.Data.Status != "PendingDismissal")
+                return BadRequest(new { status = 400, message = "Student has not been recommended for dismissal by Guidance." });
+
+            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            // Archive all violations so count resets
+            await _violationRepository.ArchiveViolations(studentResult.Data.StudentID);
+
+            string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
+
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
+
+            await _notificationRepository.SendToUser(
+                targetUsername: studentUsername,
+                title: "Account Dismissed",
+                message: "Your account has been dismissed by the SAO office. You are no longer permitted to use the system. Please contact the school for further information."
+            );
+            await _notificationRepository.SendPushNotification(
+                targetUsername: studentUsername,
+                title: "Account Dismissed",
+                message: "Your account has been dismissed by the SAO office. You are no longer permitted to use the system. Please contact the school for further information."
+            );
+
+            await _notificationRepository.SendToRole(
+                targetRole: "guidance",
+                title: "Dismissal Finalized",
+                message: $"SAO has finalized the dismissal of {studentName} ({studentNo})."
             );
 
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
@@ -573,7 +587,8 @@ namespace StudentViolations.API.Controllers
 
             var pendingAppeals = violations
                 .Where(v => v.AppealStatus == "Pending")
-                .Select(v => new {
+                .Select(v => new
+                {
                     id = v.ViolationID,
                     student_no = v.StudentNo,
                     type = v.ViolationName,

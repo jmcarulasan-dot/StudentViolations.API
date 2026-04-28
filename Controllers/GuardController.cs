@@ -108,7 +108,7 @@ namespace StudentViolations.API.Controllers
 
             var violationsResult = await _guardRepository.GetViolationsByStudentId(request.StudentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
-            int violationCount = violations.Count;
+            int violationCount = violations.Count(v => !v.IsArchived);
             string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
 
             var usernameResult = await _guardRepository.GetUsernameByStudentNo(request.StudentNo);

@@ -188,5 +188,27 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+        public async Task<ServiceResponse<bool>> ArchiveViolations(int studentId)
+        {
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "ARCHIVEVIOLATIONS");
+                param.Add("@StudentId", studentId);
+                await connection.ExecuteAsync("SP_VIOLATION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Data = true;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"ArchiveViolations error: {ex.Message}";
+            }
+            finally { connection.Close(); }
+            return service;
+        }
     }
 }

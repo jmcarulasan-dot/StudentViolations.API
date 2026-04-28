@@ -16,6 +16,7 @@
         public string? AppealText { get; set; }
         public string AppealStatus { get; set; }
         public string? AppealRemarks { get; set; }
+        public bool IsArchived { get; set; }
     }
     public class AppealReviewModel
     {

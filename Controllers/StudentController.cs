@@ -48,9 +48,11 @@ namespace StudentViolations.API.Controllers
             var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
 
-            int pending = violations.Count(v => v.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase));
-            int approved = violations.Count(v => v.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase));
-            int rejected = violations.Count(v => v.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase));
+            var activeViolations = violations.Where(v => !v.IsArchived).ToList();
+
+            int pending = activeViolations.Count(v => v.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase));
+            int approved = activeViolations.Count(v => v.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase));
+            int rejected = activeViolations.Count(v => v.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase));
 
             return Ok(new
             {
@@ -60,13 +62,13 @@ namespace StudentViolations.API.Controllers
                 {
                     student_no = studentResult.Data.StudentNo,
                     name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
-                    total_violations = violations.Count,
+                    total_violations = activeViolations.Count, 
                     pending,
                     approved,
                     rejected,
-                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
-                    recommended_action = ViolationHelper.GetRecommendedAction(violations.Count),
-                    violations = violations.Select(v => new
+                    warning_level = ViolationHelper.GetWarningLevel(activeViolations.Count),
+                    recommended_action = ViolationHelper.GetRecommendedAction(activeViolations.Count),
+                    violations = violations.Select(v => new  
                     {
                         id = v.ViolationID,
                         type = v.ViolationName,
@@ -77,7 +79,8 @@ namespace StudentViolations.API.Controllers
                         recorded_by = v.GuardName,
                         appeal_text = v.AppealText,
                         appeal_status = v.AppealStatus,
-                        appeal_remarks = v.AppealRemarks
+                        appeal_remarks = v.AppealRemarks,
+                        is_archived = v.IsArchived
                     })
                 }
             });
