@@ -18,5 +18,10 @@
         public int ViolationCount { get; set; }
         public string WarningLevel { get; set; }
         public string Status { get; set; }
+        public string? ProfilePhoto { get; set; }
+    }
+    public class UploadPhotoModel
+    {
+        public string Base64Photo { get; set; }
     }
 }

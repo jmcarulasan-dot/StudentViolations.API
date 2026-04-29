@@ -148,5 +148,29 @@ namespace StudentViolations.API.Class
             finally { connection.Close(); }
             return service;
         }
+        public async Task<ServiceResponse<bool>> UpdateProfilePhoto(string studentNo, string base64Photo)
+        {
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "UPDATEPHOTO");
+                param.Add("@StudentNo", studentNo);
+                param.Add("@ProfilePhoto", base64Photo);
+                await connection.ExecuteAsync("SP_STUDENT_DATA", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Profile photo updated successfully.";
+                service.Data = true;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"UpdateProfilePhoto error: {ex.Message}";
+            }
+            finally { connection.Close(); }
+            return service;
+        }
     }
 }

@@ -10,5 +10,6 @@ namespace StudentViolations.API.IRepository
         Task<ServiceResponse<List<StudentModel>>> GetAllStudents();
         Task<ServiceResponse<bool>> UpdateStudentStatus(int studentId, string status);
         Task<ServiceResponse<string>> GetUsernameByStudentNo(string studentNo);
+        Task<ServiceResponse<bool>> UpdateProfilePhoto(string studentNo, string base64Photo);
     }
 }

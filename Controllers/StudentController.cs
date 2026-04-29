@@ -62,13 +62,13 @@ namespace StudentViolations.API.Controllers
                 {
                     student_no = studentResult.Data.StudentNo,
                     name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
-                    total_violations = activeViolations.Count, 
+                    total_violations = activeViolations.Count,
                     pending,
                     approved,
                     rejected,
                     warning_level = ViolationHelper.GetWarningLevel(activeViolations.Count),
                     recommended_action = ViolationHelper.GetRecommendedAction(activeViolations.Count),
-                    violations = violations.Select(v => new  
+                    violations = violations.Select(v => new
                     {
                         id = v.ViolationID,
                         type = v.ViolationName,
@@ -117,7 +117,8 @@ namespace StudentViolations.API.Controllers
                     address = studentResult.Data.Address,
                     status = studentResult.Data.Status,
                     total_violations = violations.Count,
-                    warning_level = ViolationHelper.GetWarningLevel(violations.Count)
+                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
+                    profile_photo = studentResult.Data.ProfilePhoto
                 }
             });
         }
@@ -188,6 +189,32 @@ namespace StudentViolations.API.Controllers
             );
 
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+        }
+
+        // PUT api/student/profile/photo
+        [HttpPut("profile/photo")]
+        public async Task<IActionResult> UpdateProfilePhoto([FromBody] UploadPhotoModel request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Base64Photo))
+                return BadRequest(new { status = 400, message = "Photo data is required." });
+
+            if (request.Base64Photo.Length > 3_000_000)
+                return BadRequest(new { status = 400, message = "Photo is too large. Maximum size is ~2MB." });
+
+            // Validate it's actually a Base64 image (JPEG or PNG)
+            if (!request.Base64Photo.StartsWith("/9j/") &&   
+                !request.Base64Photo.StartsWith("iVBOR"))     
+                return BadRequest(new { status = 400, message = "Only JPEG and PNG images are accepted." });
+
+            string studentNo = GetLoggedInStudentNo();
+            if (string.IsNullOrEmpty(studentNo))
+                return Unauthorized(new { status = 401, message = "Student number not found in token. Please login again." });
+
+            var result = await _studentRepository.UpdateProfilePhoto(studentNo, request.Base64Photo);
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            return Ok(new { status = 200, message = "Profile photo updated successfully." });
         }
     }
 }

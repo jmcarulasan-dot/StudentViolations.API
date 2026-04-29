@@ -16,7 +16,7 @@ namespace StudentViolations.API.Controllers
         private readonly IRegisterRepository _registerRepository;
         private static readonly string[] ValidRoles = { "guard", "student", "guidance", "sao" };
         private static readonly string[] ValidGenders = { "male", "female" };
-        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba" };
+        private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba", "bscs", "bsa" };
         private static readonly string[] ValidYears = { "1", "2", "3", "4" };
 
         public RegistrationController(
@@ -106,7 +106,7 @@ namespace StudentViolations.API.Controllers
                 if (string.IsNullOrWhiteSpace(model.Course))
                     return BadRequest(new { status = 400, message = "Course is required for student role." });
                 if (!ValidCourses.Contains(model.Course.Trim().ToLower()))
-                    return BadRequest(new { status = 400, message = "Invalid course. Accepted: BSIT, BSHM, BSBA." });
+                    return BadRequest(new { status = 400, message = "Invalid course. Accepted: BSIT, BSHM, BSBA, BSCS, BSA." });
                 if (string.IsNullOrWhiteSpace(model.Year))
                     return BadRequest(new { status = 400, message = "Year is required for student role." });
                 if (!ValidYears.Contains(model.Year.Trim()))
