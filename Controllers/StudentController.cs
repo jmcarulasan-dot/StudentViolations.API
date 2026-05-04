@@ -9,7 +9,7 @@ namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/student")]
-    [Authorize(Roles = "Student,student")]
+    [Authorize(Roles = "Student")]
     [ApiExplorerSettings(GroupName = "Student")]
     public class StudentController : ControllerBase
     {

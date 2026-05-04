@@ -8,7 +8,7 @@ namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/guidance")]
-    [Authorize(Roles = "guidance,Guidance")]
+    [Authorize(Roles = "Guidance")]
     [ApiExplorerSettings(GroupName = "Guidance")]
     public class GuidanceController : ControllerBase
     {

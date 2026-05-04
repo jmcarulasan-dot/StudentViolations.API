@@ -9,7 +9,7 @@ namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/guard")]
-    [Authorize(Roles = "guard,Guard")]
+    [Authorize(Roles = "Guard")]
     [ApiExplorerSettings(GroupName = "Guard")]
     public class GuardController : ControllerBase
     {
@@ -113,6 +113,7 @@ namespace StudentViolations.API.Controllers
 
             var usernameResult = await _guardRepository.GetUsernameByStudentNo(request.StudentNo);
             string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : request.StudentNo;
+            var guardUsername = User.FindFirstValue(ClaimTypes.Name);
 
             await _notificationRepository.SendToUser(
                 targetUsername: studentUsername,
@@ -123,6 +124,11 @@ namespace StudentViolations.API.Controllers
                 targetUsername: studentUsername,
                 title: "New Violation Recorded",
                 message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
+            );
+            await _notificationRepository.SendToUser(
+                targetUsername: guardUsername,
+                title: "Violation Recorded",
+                message: $"You have successfully recorded a {request.Severity} violation for {studentName} ({request.StudentNo})."
             );
 
             if (violationCount == 1)
