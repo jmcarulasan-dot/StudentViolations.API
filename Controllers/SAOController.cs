@@ -309,6 +309,7 @@ namespace StudentViolations.API.Controllers
                     course = u.Course,
                     year = u.Year,
                     contact_number = u.ContactNumber,
+                    profile_photo = u.ProfilePhoto,
                     registration_date = u.RegistrationDate
                 })
             });

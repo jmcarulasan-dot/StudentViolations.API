@@ -53,6 +53,7 @@ namespace StudentViolations.API.Controllers
                     year = studentResult.Data.Year,
                     violation_count = violations.Count,
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count),
+                    profile_photo = studentResult.Data.ProfilePhoto,
                     violations = violations.Select(v => new
                     {
                         date = v.ViolationDate,
@@ -232,7 +233,8 @@ namespace StudentViolations.API.Controllers
                     student_no = s.StudentNo,
                     name = $"{s.FirstName} {s.LastName}",
                     course = s.Course,
-                    year = s.Year
+                    year = s.Year,
+                    profile_photo = s.ProfilePhoto
                 })
             });
         }

@@ -54,6 +54,7 @@ namespace StudentViolations.API.Controllers
                     violation_count = violations.Count,
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                     recommended_action = ViolationHelper.GetRecommendedAction(violations.Count),
+                    profile_photo = student.ProfilePhoto,
                 });
             }
             return Ok(new { status = 200, message = "Success", total = studentList.Count, data = studentList });
@@ -94,6 +95,7 @@ namespace StudentViolations.API.Controllers
                     violation_count = violations.Count,
                     warning_level = ViolationHelper.GetWarningLevel(violations.Count),
                     recommended_action = ViolationHelper.GetRecommendedAction(violations.Count),
+                    profile_photo = studentResult.Data.ProfilePhoto,
                     violations = violations.Select(v => new
                     {
                         id = v.ViolationID,
@@ -190,6 +192,17 @@ namespace StudentViolations.API.Controllers
             if (studentResult.Status != 200)
                 return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+            var activeViolations = violations.Where(v => !v.IsArchived).ToList();
+
+            if (activeViolations.Count == 0)
+                return BadRequest(new { status = 400, message = "Cannot warn a student with no violations on record." });
+
+            var blockedStatuses = new[] { "Warned", "PendingDismissal", "Dismissed" };
+            if (blockedStatuses.Contains(studentResult.Data.Status))
+                return BadRequest(new { status = 400, message = $"Student is already at status '{studentResult.Data.Status}'. No further warning needed." });
+
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Warned");
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
@@ -208,7 +221,7 @@ namespace StudentViolations.API.Controllers
                 message: "You have received an official warning from the Guidance office. Please report to the Guidance office as soon as possible."
             );
 
-            return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+            return Ok(new { status = 200, message = "Student warned successfully." });
         }
 
         // PUT api/guidance/students/{studentNo}/recommend-dismiss

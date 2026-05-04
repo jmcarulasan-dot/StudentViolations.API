@@ -19,5 +19,6 @@
         public string? Year { get; set; }
         public string? StudentNo { get; set; }
         public string? Status { get; set; }
+        public string? ProfilePhoto { get; set; }
     }
 }
