@@ -10,7 +10,7 @@ namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/sao")]
-    [ApiExplorerSettings(GroupName = "Admin")]
+    [ApiExplorerSettings(GroupName = "SAO")]
     [Authorize(Roles = "SAO")]
     public class SAOController : ControllerBase
     {
