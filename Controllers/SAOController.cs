@@ -10,8 +10,8 @@ namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/sao")]
-    [ApiExplorerSettings(GroupName = "Admin")]
-    [Authorize(Roles = "Sao")]
+    [ApiExplorerSettings(GroupName = "SAO")]
+    [Authorize(Roles = "SAO")]
     public class SAOController : ControllerBase
     {
         private readonly IViolationRepository _violationRepository;
@@ -97,6 +97,39 @@ namespace StudentViolations.API.Controllers
                 return NotFound(new { status = 404, message = $"No {status} violations found." });
 
             return Ok(new { status = 200, message = "Success", total = filtered.Count, data = filtered });
+        }
+
+        // GET api/sao/violations/by-severity
+        [HttpGet("violations/by-severity")]
+        public async Task<IActionResult> GetViolationsBySeverity()
+        {
+            var result = await _violationRepository.GetAllViolations();
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            var violations = result.Data ?? new List<ViolationModel>();
+            if (violations.Count == 0)
+                return NotFound(new { status = 404, message = "No violations found." });
+
+            var grouped = violations
+                .GroupBy(v => v.Severity)
+                .Select(g => new
+                {
+                    severity = g.Key,
+                    count = g.Count(),
+                    violations = g.Select(v => new
+                    {
+                        id = v.ViolationID,
+                        student_no = v.StudentNo,
+                        type = v.ViolationName,
+                        details = v.Description,
+                        date = v.ViolationDate,
+                        status = v.Status,
+                        recorded_by = v.GuardName
+                    })
+                });
+
+            return Ok(new { status = 200, message = "Success", data = grouped });
         }
 
         // PUT api/sao/violations/{id}/approve
@@ -417,6 +450,77 @@ namespace StudentViolations.API.Controllers
             return Ok(new { status = 200, message = $"User {userResult.Data.Username} deleted successfully." });
         }
 
+        // PUT api/sao/students/{studentNo}/warn
+        [HttpPut("students/{studentNo}/warn")]
+        public async Task<IActionResult> WarnStudent(string studentNo)
+        {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 400, message = "Student number is required." });
+
+            studentNo = studentNo.Trim().ToUpper();
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
+
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+            var activeViolations = violations.Where(v => !v.IsArchived).ToList();
+
+            if (activeViolations.Count == 0)
+                return BadRequest(new { status = 400, message = "Cannot warn a student with no violations on record." });
+
+            if (studentResult.Data.Status == "Warned" || studentResult.Data.Status == "PendingDismissal" || studentResult.Data.Status == "Dismissed")
+                return BadRequest(new { status = 400, message = $"Student is already at status '{studentResult.Data.Status}'." });
+
+            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Warned");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
+
+            await _notificationRepository.SendToUser(studentUsername, "Official Warning Issued", "You have received an official warning from the SAO office.");
+            await _notificationRepository.SendPushNotification(studentUsername, "Official Warning Issued", "You have received an official warning from the SAO office.");
+
+            return Ok(new { status = 200, message = "Student warned successfully." });
+        }
+
+        // PUT api/sao/students/{studentNo}/recommend-dismiss
+        [HttpPut("students/{studentNo}/recommend-dismiss")]
+        public async Task<IActionResult> RecommendDismissal(string studentNo)
+        {
+            if (string.IsNullOrWhiteSpace(studentNo))
+                return BadRequest(new { status = 400, message = "Student number is required." });
+
+            studentNo = studentNo.Trim().ToUpper();
+
+            var studentResult = await _studentRepository.GetStudentByStudentId(studentNo);
+            if (studentResult.Status != 200)
+                return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
+
+            var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
+            var violations = violationsResult.Data ?? new List<ViolationModel>();
+            var activeViolations = violations.Where(v => !v.IsArchived).ToList();
+
+            if (activeViolations.Count < 3)
+                return BadRequest(new { status = 400, message = "Student must have at least 3 active violations to recommend dismissal." });
+
+            var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "PendingDismissal");
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
+            string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
+            string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
+
+            await _notificationRepository.SendToUser(studentUsername, "Dismissal Recommendation", "You have been recommended for dismissal due to multiple violations. Please contact the SAO office.");
+            await _notificationRepository.SendPushNotification(studentUsername, "Dismissal Recommendation", "You have been recommended for dismissal due to multiple violations. Please contact the SAO office.");
+            await _notificationRepository.SendToRole("SAO", "Dismissal Recommendation — Action Required", $"SAO has recommended {studentName} ({studentNo}) for dismissal. They have {activeViolations.Count} active violations.");
+
+            return Ok(new { status = 200, message = "Student recommended for dismissal successfully." });
+        }
+
         [HttpGet("students/pending-dismissal")]
         public async Task<IActionResult> GetPendingDismissals()
         {
@@ -497,7 +601,7 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Student is already dismissed." });
 
             if (studentResult.Data.Status != "PendingDismissal")
-                return BadRequest(new { status = 400, message = "Student has not been recommended for dismissal by Guidance." });
+                return BadRequest(new { status = 400, message = "Student has not been recommended for dismissal." });
 
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Dismissed");
             if (result.Status != 200)
@@ -523,7 +627,7 @@ namespace StudentViolations.API.Controllers
             );
 
             await _notificationRepository.SendToRole(
-                targetRole: "guidance",
+                targetRole: "SAO",
                 title: "Dismissal Finalized",
                 message: $"SAO has finalized the dismissal of {studentName} ({studentNo})."
             );
