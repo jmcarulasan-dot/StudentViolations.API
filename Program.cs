@@ -54,10 +54,10 @@ builder.Services.AddSwaggerGen(c =>
     {
         "Authentication" => "1",
         "Guard" => "2",
-        "Student" => "3",
-        "Admin" => "4",
-        "Notifications" => "65",
-        _ => "7"
+        "SAO" => "3",
+        "Student" => "4",
+        "Notifications" => "5",
+        _ => "6"
     });
 
     c.DocInclusionPredicate((docName, apiDesc) => true);
