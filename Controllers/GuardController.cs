@@ -90,7 +90,7 @@ namespace StudentViolations.API.Controllers
             request.StudentNo = request.StudentNo.Trim().ToUpper();
             request.Severity = request.Severity.Trim().ToLower();
 
-            var studentResult = await _guardRepository.GetStudentByQrCode(request.StudentNo);
+            var studentResult = await _guardRepository.GetStudentByStudentNo(request.StudentNo);
             if (studentResult.Status != 200)
                 return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
