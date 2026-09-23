@@ -121,7 +121,7 @@ namespace StudentViolations.API.Class
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.StudentID.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.Role),
+                new Claim(ClaimTypes.Role, user.Role?.Trim().ToUpperInvariant() ?? ""),
                 new Claim("name", $"{user.FirstName} {user.LastName}"),
                 new Claim("studentNo", user.StudentNo ?? ""),
             };
