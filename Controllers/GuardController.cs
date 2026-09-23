@@ -135,7 +135,7 @@ namespace StudentViolations.API.Controllers
             if (violationCount == 1)
             {
                 await _notificationRepository.SendToRole(
-                    targetRole: "guidance",
+                    targetRole: "SAO",
                     title: "Student First Violation",
                     message: $"{studentName} ({request.StudentNo}) has received their first violation: {request.ViolationType}."
                 );
@@ -143,7 +143,7 @@ namespace StudentViolations.API.Controllers
             else if (violationCount == 2)
             {
                 await _notificationRepository.SendToRole(
-                    targetRole: "guidance",
+                    targetRole: "SAO",
                     title: "Student Second Violation",
                     message: $"{studentName} ({request.StudentNo}) now has 2 violations. Consider scheduling counseling."
                 );
@@ -151,7 +151,7 @@ namespace StudentViolations.API.Controllers
             else if (violationCount >= 3)
             {
                 await _notificationRepository.SendToRole(
-                    targetRole: "guidance",
+                    targetRole: "SAO",
                     title: "Student At Risk — 3+ Violations",
                     message: $"{studentName} ({request.StudentNo}) now has {violationCount} violations. Dismissal may be recommended."
                 );
