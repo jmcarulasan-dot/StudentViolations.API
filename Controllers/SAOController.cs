@@ -248,6 +248,11 @@ namespace StudentViolations.API.Controllers
 
             var violationsResult = await _violationRepository.GetViolationsByStudentId(studentNo);
             var violations = violationsResult.Data ?? new List<ViolationModel>();
+            var activeViolations = violations
+                .Where(v => !v.IsArchived &&
+                            (v.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) ||
+                             v.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase)))
+                .ToList();
 
             return Ok(new
             {
@@ -264,9 +269,9 @@ namespace StudentViolations.API.Controllers
                     date_of_birth = studentResult.Data.DateOfBirth,
                     course = studentResult.Data.Course,
                     year = studentResult.Data.Year,
-                    violation_count = violations.Count,
-                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
-                    recommended_action = ViolationHelper.GetRecommendedAction(violations.Count),
+                    violation_count = activeViolations.Count,
+                    warning_level = ViolationHelper.GetWarningLevel(activeViolations.Count),
+                    recommended_action = ViolationHelper.GetRecommendedAction(activeViolations.Count),
                     violations = violations.Select(v => new
                     {
                         id = v.ViolationID,
