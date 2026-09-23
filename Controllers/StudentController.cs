@@ -177,13 +177,7 @@ namespace StudentViolations.API.Controllers
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
             await _notificationRepository.SendToRole(
-                targetRole: "guidance",
-                title: "New Appeal Submitted",
-                message: $"Student {studentNo} has submitted an appeal for violation #{id}: {violation.ViolationName}."
-            );
-
-            await _notificationRepository.SendToRole(
-                targetRole: "sao",
+                targetRole: "SAO",
                 title: "New Appeal Submitted",
                 message: $"Student {studentNo} has submitted an appeal for violation #{id}: {violation.ViolationName}."
             );
