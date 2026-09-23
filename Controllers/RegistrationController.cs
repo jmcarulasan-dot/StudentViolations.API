@@ -14,7 +14,7 @@ namespace StudentViolations.API.Controllers
     {
         private readonly ILoginRepository _loginRepository;
         private readonly IRegisterRepository _registerRepository;
-        private static readonly string[] ValidRoles = { "guard", "student", "guidance", "sao" };
+        private static readonly string[] ValidRoles = { "student" };
         private static readonly string[] ValidGenders = { "male", "female" };
         private static readonly string[] ValidCourses = { "bsit", "bshm", "bsba", "bscs", "bsa" };
         private static readonly string[] ValidYears = { "1", "2", "3", "4" };
@@ -86,7 +86,7 @@ namespace StudentViolations.API.Controllers
             if (string.IsNullOrWhiteSpace(model.Role))
                 return BadRequest(new { status = 400, message = "Role is required." });
             if (!ValidRoles.Contains(model.Role.Trim().ToLower()))
-                return BadRequest(new { status = 400, message = "Role must be one of: guard, student, guidance, sao." });
+                return BadRequest(new { status = 400, message = "Only student registration is allowed." });
 
             model.Username = model.Username.Trim();
             model.Email = model.Email.Trim().ToLower();
