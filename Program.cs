@@ -54,10 +54,9 @@ builder.Services.AddSwaggerGen(c =>
     {
         "Authentication" => "1",
         "Guard" => "2",
-        "SAO" => "3",
-        "Student" => "4",
-        "Admin" => "5",
-        "Notifications" => "6",
+        "Student" => "3",
+        "Admin" => "4",
+        "Notifications" => "65",
         _ => "7"
     });
 
