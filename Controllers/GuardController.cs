@@ -15,7 +15,17 @@ namespace StudentViolations.API.Controllers
     {
         private readonly IGuardRepository _guardRepository;
         private readonly INotificationRepository _notificationRepository;
-        private static readonly string[] ValidSeverities = { "minor", "moderate", "major", "critical" };
+        private static readonly Dictionary<string, string> ViolationSeverityMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["No ID"] = "minor",
+            ["No Uniform"] = "minor",
+            ["Piercing"] = "minor",
+            ["Colored Hair"] = "minor",
+            ["Disruptive Behavior"] = "moderate",
+            ["Vandalism"] = "major",
+            ["Prohibited Items"] = "critical",
+            ["Other"] = "minor"
+        };
 
         public GuardController(
             IGuardRepository guardRepository,
@@ -79,16 +89,20 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Violation type is required." });
             if (string.IsNullOrWhiteSpace(request.Details))
                 return BadRequest(new { status = 400, message = "Details are required." });
-            if (string.IsNullOrWhiteSpace(request.Severity) ||
-                !ValidSeverities.Contains(request.Severity.Trim().ToLower()))
-                return BadRequest(new { status = 400, message = "Severity must be: minor, moderate, major, or critical." });
 
             var guardId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(guardId))
                 return Unauthorized(new { status = 401, message = "Guard ID not found in token. Please login again." });
 
             request.StudentNo = request.StudentNo.Trim().ToUpper();
-            request.Severity = request.Severity.Trim().ToLower();
+            request.ViolationType = request.ViolationType.Trim();
+
+            if (!ViolationSeverityMap.TryGetValue(request.ViolationType, out var severity))
+                return BadRequest(new
+                {
+                    status = 400,
+                    message = "Invalid violation type."
+                });
 
             var studentResult = await _guardRepository.GetStudentByStudentNo(request.StudentNo);
             if (studentResult.Status != 200)
@@ -99,7 +113,7 @@ namespace StudentViolations.API.Controllers
                 StudentId = studentResult.Data.StudentID,
                 ViolationName = request.ViolationType.Trim(),
                 Description = request.Details.Trim(),
-                Severity = request.Severity,
+                Severity = severity,
                 GuardId = guardId
             };
 
@@ -119,17 +133,17 @@ namespace StudentViolations.API.Controllers
             await _notificationRepository.SendToUser(
                 targetUsername: studentUsername,
                 title: "New Violation Recorded",
-                message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
+                message: $"A {severity} violation has been recorded against you: {request.ViolationType}."
             );
             await _notificationRepository.SendPushNotification(
                 targetUsername: studentUsername,
                 title: "New Violation Recorded",
-                message: $"A {request.Severity} violation has been recorded against you: {request.ViolationType}."
+                message: $"A {severity} violation has been recorded against you: {request.ViolationType}."
             );
             await _notificationRepository.SendToUser(
                 targetUsername: guardUsername,
                 title: "Violation Recorded",
-                message: $"You have successfully recorded a {request.Severity} violation for {studentName} ({request.StudentNo})."
+                message: $"You have successfully recorded a {severity} violation for {studentName} ({request.StudentNo})."
             );
 
             if (violationCount == 1)
