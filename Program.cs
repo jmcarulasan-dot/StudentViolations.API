@@ -53,11 +53,12 @@ builder.Services.AddSwaggerGen(c =>
     c.OrderActionsBy(api => api.GroupName switch
     {
         "Authentication" => "1",
-        "Guard" => "2",
-        "SAO" => "3",
-        "Student" => "4",
-        "Notifications" => "5",
-        _ => "6"
+        "Admission" => "2",
+        "Guard" => "3",
+        "SAO" => "4",
+        "Student" => "5",
+        "Notifications" => "6",
+        _ => "7"
     });
 
     c.DocInclusionPredicate((docName, apiDesc) => true);
@@ -101,6 +102,7 @@ builder.Services.AddScoped<IStudentRepository, StudentClass>();
 builder.Services.AddScoped<IViolationRepository, ViolationClass>();
 builder.Services.AddScoped<IGuardRepository, GuardClass>();
 builder.Services.AddScoped<ISAORepository, SAOClass>();
+builder.Services.AddScoped<IAdmissionRepository, AdmissionClass>();
 builder.Services.AddScoped<INotificationRepository, NotificationClass>();
 
 var app = builder.Build();
