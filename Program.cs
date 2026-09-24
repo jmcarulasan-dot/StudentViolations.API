@@ -103,6 +103,7 @@ builder.Services.AddScoped<IViolationRepository, ViolationClass>();
 builder.Services.AddScoped<IGuardRepository, GuardClass>();
 builder.Services.AddScoped<ISAORepository, SAOClass>();
 builder.Services.AddScoped<IAdmissionRepository, AdmissionClass>();
+builder.Services.AddScoped<IEmailRepository, EmailClass>();
 builder.Services.AddScoped<INotificationRepository, NotificationClass>();
 
 var app = builder.Build();
