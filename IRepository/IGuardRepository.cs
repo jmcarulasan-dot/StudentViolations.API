@@ -6,6 +6,7 @@ namespace StudentViolations.API.IRepository
     public interface IGuardRepository
     {
         Task<ServiceResponse<StudentModel>> GetStudentByQrCode(string qrCode);
+        Task<ServiceResponse<StudentModel>> GetStudentByStudentNo(string studentNo);
         Task<ServiceResponse<bool>> RecordViolation(ViolationModel violation);
         Task<ServiceResponse<string>> GetUsernameByStudentNo(string studentNo);
     }
