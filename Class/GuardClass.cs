@@ -80,7 +80,7 @@ namespace StudentViolations.API.Class
                 await connection.OpenAsync();
                 DynamicParameters param = new DynamicParameters();
                 param.Add("@statementType", "GETSTUDENTBYQR");
-                param.Add("@QRCode", qrCode);
+                param.Add("@StudentNo", qrCode);
                 var result = await connection.QueryFirstOrDefaultAsync<StudentModel>("SP_GUARD", param, commandType: CommandType.StoredProcedure);
                 if (result == null)
                 {
