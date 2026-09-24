@@ -35,7 +35,7 @@ namespace StudentViolations.API.Class
             p.Add("@Course", enrollment.Course);
             p.Add("@Year", enrollment.Year);
             var result = await connection.QueryFirstOrDefaultAsync<EnrollmentModel>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
-            return result == null
+            return result == null || result.EnrollmentId <= 0
                 ? new ServiceResponse<EnrollmentModel> { Status = 400, Message = "Enrollment could not be created." }
                 : new ServiceResponse<EnrollmentModel> { Status = 200, Message = "Enrollment record saved.", Data = result };
         }
