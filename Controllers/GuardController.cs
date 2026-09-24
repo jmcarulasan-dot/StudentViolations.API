@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using StudentViolations.API.Helpers;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using System.Security.Claims;
@@ -48,9 +47,6 @@ namespace StudentViolations.API.Controllers
             if (studentResult.Status != 200)
                 return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
-            var violationsResult = await _guardRepository.GetViolationsByStudentId(studentNo);
-            var violations = violationsResult.Data ?? new List<ViolationModel>();
-
             return Ok(new
             {
                 status = 200,
@@ -61,18 +57,7 @@ namespace StudentViolations.API.Controllers
                     name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
                     course = studentResult.Data.Course,
                     year = studentResult.Data.Year,
-                    violation_count = violations.Count,
-                    warning_level = ViolationHelper.GetWarningLevel(violations.Count),
-                    profile_photo = studentResult.Data.ProfilePhoto,
-                    violations = violations.Select(v => new
-                    {
-                        date = v.ViolationDate,
-                        type = v.ViolationName,
-                        details = v.Description,
-                        severity = v.Severity,
-                        status = v.Status,
-                        recorded_by = v.GuardName
-                    })
+                    profile_photo = studentResult.Data.ProfilePhoto
                 }
             });
         }
@@ -185,99 +170,8 @@ namespace StudentViolations.API.Controllers
             });
         }
 
-        // GET api/guard/violations/summary?StartDate=xxx&EndDate=xxx
-        [HttpGet("violations/summary")]
-        public async Task<IActionResult> GetViolationSummary([FromQuery] GetSummaryModel request)
-        {
-            if (request.StartDate == default)
-                return BadRequest(new { status = 400, message = "Start date is required." });
-            if (request.EndDate == default)
-                return BadRequest(new { status = 400, message = "End date is required." });
-            if (request.StartDate > request.EndDate)
-                return BadRequest(new { status = 400, message = "Start date cannot be after end date." });
-            if ((request.EndDate - request.StartDate).TotalDays > 365)
-                return BadRequest(new { status = 400, message = "Date range cannot exceed 1 year." });
 
-            var result = await _guardRepository.GetViolationsInDateRange(request.StartDate, request.EndDate);
-            if (result.Status != 200)
-                return StatusCode(result.Status, result);
 
-            var violations = result.Data ?? new List<ViolationModel>();
-            if (violations.Count == 0)
-                return NotFound(new { status = 404, message = "No violations found in this date range." });
 
-            string topViolation = violations
-                .GroupBy(v => v.ViolationName)
-                .OrderByDescending(g => g.Count())
-                .FirstOrDefault()?.Key ?? "N/A";
-
-            return Ok(new
-            {
-                status = 200,
-                message = "Success",
-                data = new
-                {
-                    totalViolations = violations.Count,
-                    topViolation,
-                    startDate = request.StartDate,
-                    endDate = request.EndDate
-                }
-            });
-        }
-
-        // GET api/guard/students
-        [HttpGet("students")]
-        public async Task<IActionResult> GetAllStudents()
-        {
-            var result = await _guardRepository.GetAllStudents();
-            if (result.Status != 200)
-                return StatusCode(result.Status, result);
-
-            var students = result.Data ?? new List<StudentModel>();
-            if (students.Count == 0)
-                return NotFound(new { status = 404, message = "No students found." });
-
-            return Ok(new
-            {
-                status = 200,
-                message = "Success",
-                total = students.Count,
-                data = students.Select(s => new
-                {
-                    student_no = s.StudentNo,
-                    name = $"{s.FirstName} {s.LastName}",
-                    course = s.Course,
-                    year = s.Year,
-                    profile_photo = s.ProfilePhoto
-                })
-            });
-        }
-
-        // GET api/guard/students/exist?studentNo=xxx
-        [HttpGet("students/exist")]
-        public async Task<IActionResult> GetStudentByStudentNo([FromQuery] string studentNo)
-        {
-            if (string.IsNullOrWhiteSpace(studentNo))
-                return BadRequest(new { status = 400, message = "Student number is required." });
-
-            studentNo = studentNo.Trim().ToUpper();
-
-            var result = await _guardRepository.GetStudentByStudentNo(studentNo);
-            if (result.Status != 200)
-                return StatusCode(result.Status, result);
-
-            return Ok(new
-            {
-                status = 200,
-                message = "Success",
-                data = new
-                {
-                    student_no = result.Data.StudentNo,
-                    name = $"{result.Data.FirstName} {result.Data.LastName}",
-                    course = result.Data.Course,
-                    year = result.Data.Year
-                }
-            });
-        }
     }
 }
