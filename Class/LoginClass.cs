@@ -61,6 +61,16 @@ namespace StudentViolations.API.Class
                     return service;
                 }
 
+                // A successful Student login confirms that the student has completed
+                // the SVS app registration/activation step required for clearance.
+                if (string.Equals(result.Role, "Student", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(result.StudentNo))
+                {
+                    await connection.ExecuteAsync(
+                        "UPDATE dbo.Students SET AppRegistered = 1 WHERE StudentNo = @StudentNo",
+                        new { StudentNo = result.StudentNo });
+                }
+
                 service.Status = 200;
                 service.Message = "Login successful.";
                 service.Data = result;
