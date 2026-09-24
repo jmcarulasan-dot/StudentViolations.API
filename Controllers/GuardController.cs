@@ -106,9 +106,6 @@ namespace StudentViolations.API.Controllers
             if (recordResult.Status != 200)
                 return StatusCode(recordResult.Status, recordResult);
 
-            var violationsResult = await _guardRepository.GetViolationsByStudentId(request.StudentNo);
-            var violations = violationsResult.Data ?? new List<ViolationModel>();
-            int violationCount = violations.Count(v => !v.IsArchived);
             string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
 
             var usernameResult = await _guardRepository.GetUsernameByStudentNo(request.StudentNo);
@@ -130,31 +127,11 @@ namespace StudentViolations.API.Controllers
                 title: "Violation Recorded",
                 message: $"You have successfully recorded a {severity} violation for {studentName} ({request.StudentNo})."
             );
-
-            if (violationCount == 1)
-            {
-                await _notificationRepository.SendToRole(
-                    targetRole: "SAO",
-                    title: "Student First Violation",
-                    message: $"{studentName} ({request.StudentNo}) has received their first violation: {request.ViolationType}."
-                );
-            }
-            else if (violationCount == 2)
-            {
-                await _notificationRepository.SendToRole(
-                    targetRole: "SAO",
-                    title: "Student Second Violation",
-                    message: $"{studentName} ({request.StudentNo}) now has 2 violations. Consider scheduling counseling."
-                );
-            }
-            else if (violationCount >= 3)
-            {
-                await _notificationRepository.SendToRole(
-                    targetRole: "SAO",
-                    title: "Student At Risk — 3+ Violations",
-                    message: $"{studentName} ({request.StudentNo}) now has {violationCount} violations. Dismissal may be recommended."
-                );
-            }
+            await _notificationRepository.SendToRole(
+                targetRole: "SAO",
+                title: "New Student Violation",
+                message: $"{studentName} ({request.StudentNo}) has received a {severity} violation: {request.ViolationType}."
+            );
 
             return Ok(new
             {
@@ -164,8 +141,8 @@ namespace StudentViolations.API.Controllers
                 {
                     student_no = studentResult.Data.StudentNo,
                     name = studentName,
-                    new_violation_count = violationCount,
-                    new_warning_level = ViolationHelper.GetWarningLevel(violationCount)
+                    violation_type = request.ViolationType,
+                    severity = severity
                 }
             });
         }
