@@ -1,4 +1,6 @@
 using Dapper;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using System.Security.Cryptography;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using StudentViolations.API.Model.Response;
@@ -65,7 +67,12 @@ namespace StudentViolations.API.Class
             p.Add("@DateOfBirth", DateTime.Parse(request.DateOfBirth));
             p.Add("@Email", request.Email);
             p.Add("@Username", request.Username);
-            p.Add("@Password", request.Password);
+            var saltBytes = RandomNumberGenerator.GetBytes(16);
+            var salt = Convert.ToBase64String(saltBytes);
+            var hash = Convert.ToBase64String(KeyDerivation.Pbkdf2(request.Password, saltBytes, KeyDerivationPrf.HMACSHA256, 10000, 32));
+            p.Add("@PasswordHash", hash);
+            p.Add("@Salt", salt);
+            
             var result = await connection.QueryFirstOrDefaultAsync<dynamic>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
             if (result == null || (int)result.Success != 1)
                 return new ServiceResponse<bool> { Status = 400, Message = (string?)result?.Message ?? "Registration request was rejected.", Data = false };
