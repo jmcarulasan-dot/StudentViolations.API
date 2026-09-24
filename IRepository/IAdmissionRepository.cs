@@ -5,10 +5,6 @@ namespace StudentViolations.API.IRepository
 {
     public interface IAdmissionRepository
     {
-        Task<ServiceResponse<List<UserModel>>> GetAllUsers();
-        Task<ServiceResponse<UserModel>> GetUserById(int id);
-        Task<ServiceResponse<bool>> UpdateUser(UserModel user);
-        Task<ServiceResponse<bool>> DeleteUser(int id);
-        Task<ServiceResponse<string>> GetStudentQrCode(string studentNo);
+        Task<ServiceResponse<UserModel>> RegisterStudent(UserModel user);
     }
 }
