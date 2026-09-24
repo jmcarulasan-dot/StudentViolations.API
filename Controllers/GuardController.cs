@@ -89,7 +89,7 @@ namespace StudentViolations.API.Controllers
                     message = "Invalid violation type."
                 });
 
-            var studentResult = await _guardRepository.GetStudentByStudentNo(request.StudentNo);
+            var studentResult = await _guardRepository.GetStudentByQrCode(request.StudentNo);
             if (studentResult.Status != 200)
                 return StatusCode(studentResult.Status, new { status = studentResult.Status, message = studentResult.Message });
 
