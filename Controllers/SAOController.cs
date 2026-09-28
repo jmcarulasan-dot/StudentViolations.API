@@ -654,6 +654,16 @@ namespace StudentViolations.API.Controllers
             return StatusCode(result.Status, new { status = result.Status, message = result.Message });
         }
 
+        // GET api/sao/students/pending-dismissal
+        [HttpGet("students/pending-dismissal")]
+        public async Task<IActionResult> GetPendingDismissals()
+        {
+            var result = await _saoRepository.GetPendingDismissals();
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+            return Ok(new { status = 200, message = "Success", data = result.Data });
+        }
+
         // GET api/sao/students/dismissed
         [HttpGet("students/dismissed")]
         public async Task<IActionResult> GetDismissedStudents()
