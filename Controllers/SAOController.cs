@@ -18,18 +18,53 @@ namespace StudentViolations.API.Controllers
         private readonly IStudentRepository _studentRepository;
         private readonly ISAORepository _saoRepository;
         private readonly INotificationRepository _notificationRepository;
+        private readonly IAuditTrailRepository _auditTrailRepository;
         private static readonly string[] ValidGenders = { "male", "female" };
 
         public SAOController(
             IViolationRepository violationRepository,
             IStudentRepository studentRepository,
             ISAORepository saoRepository,
-            INotificationRepository notificationRepository)
+            INotificationRepository notificationRepository,
+            IAuditTrailRepository auditTrailRepository)
         {
             _violationRepository = violationRepository;
             _studentRepository = studentRepository;
             _saoRepository = saoRepository;
             _notificationRepository = notificationRepository;
+            _auditTrailRepository = auditTrailRepository;
+        }
+
+        private async Task RecordAuditAsync(
+            string action, string entityType, string entityId, string? studentNo,
+            string? previousValue, string? newValue, string? remarks)
+        {
+            await _auditTrailRepository.RecordAsync(new AuditTrailEntry
+            {
+                Action = action,
+                EntityType = entityType,
+                EntityID = entityId,
+                StudentNo = studentNo,
+                PreviousValue = previousValue,
+                NewValue = newValue,
+                Remarks = remarks,
+                ActorUsername = User.FindFirstValue(ClaimTypes.Name) ?? "unknown",
+                ActorRole = User.FindFirstValue(ClaimTypes.Role) ?? "unknown",
+                CreatedAtUtc = DateTime.UtcNow
+            });
+        }
+
+        // GET api/sao/audit?take=100&studentNo=...
+        [HttpGet("audit")]
+        public async Task<IActionResult> GetAuditHistory([FromQuery] int take = 100, [FromQuery] string? studentNo = null)
+        {
+            take = Math.Clamp(take, 1, 500);
+            studentNo = string.IsNullOrWhiteSpace(studentNo) ? null : studentNo.Trim().ToUpperInvariant();
+            var result = await _auditTrailRepository.GetRecentAsync(take, studentNo);
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            return Ok(new { status = 200, message = "Audit history retrieved successfully.", total = result.Data?.Count ?? 0, data = result.Data });
         }
 
         // GET api/sao/violations
@@ -116,6 +151,8 @@ namespace StudentViolations.API.Controllers
             var result = await _violationRepository.UpdateViolationStatus(id, "Approved");
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+            await RecordAuditAsync("ViolationApproved", "Violation", id.ToString(), violationResult.Data.StudentNo,
+                violationResult.Data.Status, "Approved", null);
 
             var usernameResult = await _studentRepository.GetUsernameByStudentNo(violationResult.Data.StudentNo);
             string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : violationResult.Data.StudentNo;
@@ -151,6 +188,8 @@ namespace StudentViolations.API.Controllers
             var result = await _violationRepository.UpdateViolationStatus(id, "Rejected");
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+            await RecordAuditAsync("ViolationRejected", "Violation", id.ToString(), violationResult.Data.StudentNo,
+                violationResult.Data.Status, "Rejected", null);
 
             var usernameResult = await _studentRepository.GetUsernameByStudentNo(violationResult.Data.StudentNo);
             string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : violationResult.Data.StudentNo;
@@ -197,6 +236,9 @@ namespace StudentViolations.API.Controllers
             var result = await _violationRepository.DeleteViolation(id);
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            await RecordAuditAsync("ViolationDeleted", "Violation", id.ToString(), violationResult.Data.StudentNo,
+                violationResult.Data.Status, null, $"{violationResult.Data.ViolationName}: {violationResult.Data.Description}");
 
             return Ok(new { status = 200, message = "Violation deleted successfully.", deletion_history = deletionRecord });
         }
@@ -338,6 +380,9 @@ namespace StudentViolations.API.Controllers
                     message = result.Message
                 });
 
+            await RecordAuditAsync("DismissalRecommended", "Student", studentNo, studentNo,
+                studentResult.Data.Status, "PendingDismissal", "Recommended after three or more active violations.");
+
             var usernameResult =
                 await _studentRepository.GetUsernameByStudentNo(studentNo);
 
@@ -411,6 +456,9 @@ namespace StudentViolations.API.Controllers
                     status = result.Status,
                     message = result.Message
                 });
+
+            await RecordAuditAsync("CounselingAssigned", "Student", studentNo, studentNo,
+                studentResult.Data.Status, "Counseling", "Counseling action recorded by SAO.");
 
             var usernameResult =
                 await _studentRepository.GetUsernameByStudentNo(studentNo);
@@ -537,6 +585,9 @@ namespace StudentViolations.API.Controllers
                     message = result.Message
                 });
 
+            await RecordAuditAsync("WarningIssued", "Student", studentNo, studentNo,
+                studentResult.Data.Status, "Warned", "Warning action recorded by SAO.");
+
             var usernameResult =
                 await _studentRepository.GetUsernameByStudentNo(studentNo);
 
@@ -582,6 +633,9 @@ namespace StudentViolations.API.Controllers
             var result = await _studentRepository.UpdateStudentStatus(studentResult.Data.StudentID, "Active");
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            await RecordAuditAsync("DismissalCancelled", "Student", studentNo, studentNo,
+                studentResult.Data.Status, "Active", "Dismissal cancelled and account restored.");
 
             var usernameResult = await _studentRepository.GetUsernameByStudentNo(studentNo);
             string studentUsername = usernameResult.Status == 200 ? usernameResult.Data : studentNo;
@@ -634,6 +688,9 @@ namespace StudentViolations.API.Controllers
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
 
+            await RecordAuditAsync("StudentDismissed", "Student", studentNo, studentNo,
+                studentResult.Data.Status, "Dismissed", "Dismissal finalized by SAO.");
+
             // Archive all violations so count resets
             await _violationRepository.ArchiveViolations(studentResult.Data.StudentID);
 
@@ -685,6 +742,9 @@ namespace StudentViolations.API.Controllers
             var result = await _violationRepository.UpdateAppealStatus(id, request.AppealStatus.Trim(), request.AppealRemarks?.Trim());
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            await RecordAuditAsync("AppealReviewed", "Violation", id.ToString(), violationResult.Data.StudentNo,
+                violationResult.Data.AppealStatus, request.AppealStatus.Trim(), request.AppealRemarks?.Trim());
 
             string outcomeMessage = request.AppealStatus.Trim() == "Approved"
                 ? $"Your appeal for violation '{violationResult.Data.ViolationName}' has been approved by the SAO office."

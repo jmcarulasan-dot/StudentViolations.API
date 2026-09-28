@@ -105,6 +105,7 @@ builder.Services.AddScoped<ISAORepository, SAOClass>();
 builder.Services.AddScoped<IAdmissionRepository, AdmissionClass>();
 builder.Services.AddScoped<IEmailRepository, EmailClass>();
 builder.Services.AddScoped<INotificationRepository, NotificationClass>();
+builder.Services.AddScoped<IAuditTrailRepository, AuditTrailClass>();
 
 var app = builder.Build();
 
