@@ -27,10 +27,6 @@ namespace StudentViolations.API.Controllers
                 !Regex.IsMatch(model.StudentNo.Trim(), @"^[A-Za-z0-9]{3}-\d{2}-\d{4}-[A-Za-z0-9]{6}$"))
                 return BadRequest(new { status = 400, message = "A valid student number is required." });
 
-            if (string.IsNullOrWhiteSpace(model.DateOfBirth) ||
-                !DateTime.TryParse(model.DateOfBirth, out _))
-                return BadRequest(new { status = 400, message = "A valid date of birth is required." });
-
             if (string.IsNullOrWhiteSpace(model.Email) ||
                 !Regex.IsMatch(model.Email.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
                 return BadRequest(new { status = 400, message = "A valid email is required." });

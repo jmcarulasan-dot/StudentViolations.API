@@ -2,7 +2,7 @@ USE [StudentViolations]
 GO
 /* ============================================================
    ADMISSION WORKFLOW
-   Enrollment -> Student App Registration -> Admission Verification
+   Enrollment -> Student App Registration ->a Admission Verification
    -> Account/QR Creation -> Email -> Clearance
    ============================================================ */
 
@@ -76,10 +76,6 @@ CREATE OR ALTER PROCEDURE dbo.SP_ADMISSION
     @StudentNo VARCHAR(50) = NULL,
     @FirstName VARCHAR(50) = NULL,
     @LastName VARCHAR(50) = NULL,
-    @DateOfBirth DATE = NULL,
-    @Gender VARCHAR(10) = NULL,
-    @Address VARCHAR(100) = NULL,
-    @ContactNumber VARCHAR(20) = NULL,
     @Email VARCHAR(50) = NULL,
     @Course VARCHAR(50) = NULL,
     @Year VARCHAR(20) = NULL,
@@ -95,21 +91,24 @@ BEGIN
         BEGIN
             IF EXISTS (SELECT 1 FROM dbo.StudentEnrollments WHERE StudentNo = @StudentNo)
             BEGIN
-                SELECT NULL AS EnrollmentId, @StudentNo AS StudentNo, 'Enrollment already exists.' AS ErrorMessage;
+                SELECT NULL AS StudentNo, 'Enrollment already exists.' AS ErrorMessage;
                 RETURN;
             END
 
             INSERT INTO dbo.StudentEnrollments
-            (StudentNo, FirstName, LastName, DateOfBirth, Gender, Address, ContactNumber, Email, Course, Year)
+            (StudentNo, FirstName, LastName, Email, Course, Year)
             VALUES
-            (@StudentNo, @FirstName, @LastName, @DateOfBirth, @Gender, @Address, @ContactNumber, @Email, @Course, @Year);
+            (@StudentNo, @FirstName, @LastName, @Email, @Course, @Year);
 
-            SELECT * FROM dbo.StudentEnrollments WHERE EnrollmentId = SCOPE_IDENTITY();
+            SELECT StudentNo, FirstName, LastName, Email, Course, Year
+            FROM dbo.StudentEnrollments
+            WHERE EnrollmentId = SCOPE_IDENTITY();
         END
 
         ELSE IF (@statementType = 'GETENROLLMENTS')
         BEGIN
-            SELECT * FROM dbo.StudentEnrollments
+            SELECT StudentNo, FirstName, LastName, Email, Course, Year
+            FROM dbo.StudentEnrollments
             ORDER BY LastName, FirstName;
         END
 
@@ -120,7 +119,6 @@ BEGIN
             SELECT @MatchedEnrollmentId = EnrollmentId
             FROM dbo.StudentEnrollments
             WHERE StudentNo = @StudentNo
-              AND DateOfBirth = @DateOfBirth
               AND LOWER(ISNULL(Email, '')) = LOWER(@Email)
               AND EnrollmentStatus = 'Active';
 
@@ -160,8 +158,7 @@ BEGIN
                 e.LastName,
                 r.Email,
                 r.Username,
-                r.RequestStatus,
-                r.SubmittedAt
+                r.RequestStatus
             FROM dbo.StudentRegistrationRequests r
             INNER JOIN dbo.StudentEnrollments e ON e.EnrollmentId = r.EnrollmentId
             WHERE r.RequestStatus = 'Pending'

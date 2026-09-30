@@ -29,7 +29,6 @@ namespace StudentViolations.API.Controllers
             model.FirstName = model.FirstName?.Trim();
             model.LastName = model.LastName?.Trim();
             model.Email = model.Email?.Trim().ToLowerInvariant();
-            model.Gender = model.Gender?.Trim().ToLowerInvariant();
             model.Course = model.Course?.Trim().ToUpperInvariant();
             model.Year = model.Year?.Trim();
 
@@ -37,7 +36,8 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Invalid student number format." });
 
             if (string.IsNullOrWhiteSpace(model.FirstName) || string.IsNullOrWhiteSpace(model.LastName) ||
-                string.IsNullOrWhiteSpace(model.Email) || model.DateOfBirth == null ||
+                string.IsNullOrWhiteSpace(model.Email) ||
+                !Regex.IsMatch(model.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$") ||
                 string.IsNullOrWhiteSpace(model.Course) || string.IsNullOrWhiteSpace(model.Year))
                 return BadRequest(new { status = 400, message = "Complete enrollment information is required." });
 

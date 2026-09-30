@@ -27,15 +27,11 @@ namespace StudentViolations.API.Class
             p.Add("@StudentNo", enrollment.StudentNo);
             p.Add("@FirstName", enrollment.FirstName);
             p.Add("@LastName", enrollment.LastName);
-            p.Add("@DateOfBirth", enrollment.DateOfBirth);
-            p.Add("@Gender", enrollment.Gender);
-            p.Add("@Address", enrollment.Address);
-            p.Add("@ContactNumber", enrollment.ContactNumber);
             p.Add("@Email", enrollment.Email);
             p.Add("@Course", enrollment.Course);
             p.Add("@Year", enrollment.Year);
             var result = await connection.QueryFirstOrDefaultAsync<EnrollmentModel>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
-            return result == null || result.EnrollmentId <= 0
+            return result == null || string.IsNullOrWhiteSpace(result.StudentNo)
                 ? new ServiceResponse<EnrollmentModel> { Status = 400, Message = "Enrollment could not be created." }
                 : new ServiceResponse<EnrollmentModel> { Status = 200, Message = "Enrollment record saved.", Data = result };
         }
@@ -64,7 +60,6 @@ namespace StudentViolations.API.Class
             var p = new DynamicParameters();
             p.Add("@statementType", "SUBMITREGISTRATION");
             p.Add("@StudentNo", request.StudentNo);
-            p.Add("@DateOfBirth", DateTime.Parse(request.DateOfBirth));
             p.Add("@Email", request.Email);
             p.Add("@Username", request.Username);
             var saltBytes = RandomNumberGenerator.GetBytes(16);
