@@ -10,4 +10,9 @@
         public bool IsRead { get; set; }
         public DateTime CreatedAt { get; set; }
     }
+
+    public class FCMRequest
+    {
+        public string FCMToken { get; set; } = string.Empty;
+    }
 }

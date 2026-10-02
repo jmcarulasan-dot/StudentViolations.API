@@ -1,25 +1,41 @@
+using System.Text.Json.Serialization;
+
 namespace StudentViolations.API.Model
 {
-    public sealed class AuthenticatorCodeRequest
+    public class AuthenticatorCodeRequest
     {
         public string ChallengeId { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
     }
 
-    public sealed class AuthenticationFlow
+    public class AuthenticationFlow
     {
-        public bool RequiresAuthenticatorSetup { get; set; }
-        public bool RequiresAuthenticatorCode { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? NextStep { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ChallengeId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? AuthenticatorUri { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? QrCodeDataUri { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ManualEntryKey { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Role { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Token { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public IReadOnlyList<string>? RecoveryCodes { get; set; }
     }
 
-    internal sealed class LoginAccount
+    internal class LoginAccount
     {
         public int StudentID { get; set; }
         public string Username { get; set; } = string.Empty;

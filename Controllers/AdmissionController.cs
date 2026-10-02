@@ -49,14 +49,14 @@ namespace StudentViolations.API.Controllers
         public async Task<IActionResult> GetEnrollments()
         {
             var result = await _admissionRepository.GetEnrollments();
-            return Ok(new { status = result.Status, message = result.Message, data = result.Data });
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
 
         [HttpGet("registration-requests")]
         public async Task<IActionResult> GetRegistrationRequests()
         {
             var result = await _admissionRepository.GetRegistrationRequests();
-            return Ok(new { status = result.Status, message = result.Message, data = result.Data });
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
 
         [HttpPost("registration-requests/{requestId:int}/approve")]
@@ -77,7 +77,7 @@ namespace StudentViolations.API.Controllers
         public async Task<IActionResult> CheckClearance(string studentNo)
         {
             var result = await _admissionRepository.CanSignClearance(studentNo);
-            return Ok(new { status = result.Status, message = result.Message, canSign = result.Data });
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message, canSign = result.Data });
         }
 
         [HttpPost("students/{studentNo}/clearance/sign")]

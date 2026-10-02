@@ -20,3 +20,43 @@ BEGIN
         ON dbo.AuditTrail (StudentNo, AuditID DESC);
 END;
 GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_AUDIT_TRAIL
+    @statementType VARCHAR(20),
+    @Action NVARCHAR(80) = NULL,
+    @EntityType NVARCHAR(40) = NULL,
+    @EntityID NVARCHAR(80) = NULL,
+    @StudentNo NVARCHAR(50) = NULL,
+    @PreviousValue NVARCHAR(200) = NULL,
+    @NewValue NVARCHAR(200) = NULL,
+    @Remarks NVARCHAR(2000) = NULL,
+    @ActorUsername NVARCHAR(100) = NULL,
+    @ActorRole NVARCHAR(30) = NULL,
+    @Take INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @statementType = 'INSERT'
+    BEGIN
+        INSERT INTO dbo.AuditTrail
+            (Action, EntityType, EntityID, StudentNo, PreviousValue, NewValue, Remarks, ActorUsername, ActorRole)
+        VALUES
+            (@Action, @EntityType, @EntityID, @StudentNo, @PreviousValue, @NewValue, @Remarks, @ActorUsername, @ActorRole);
+        RETURN;
+    END;
+
+    IF @statementType = 'GETRECENT'
+    BEGIN
+        SELECT TOP (@Take)
+            AuditID, Action, EntityType, EntityID, StudentNo, PreviousValue, NewValue,
+            Remarks, ActorUsername, ActorRole, CreatedAtUtc
+        FROM dbo.AuditTrail
+        WHERE (@StudentNo IS NULL OR StudentNo = @StudentNo)
+        ORDER BY AuditID DESC;
+        RETURN;
+    END;
+
+    THROW 50001, 'Unsupported SP_AUDIT_TRAIL statement type.', 1;
+END;
+GO

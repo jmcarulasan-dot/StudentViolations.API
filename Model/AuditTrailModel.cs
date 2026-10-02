@@ -1,6 +1,6 @@
 namespace StudentViolations.API.Model
 {
-    public sealed class AuditTrailEntry
+    public class AuditTrailEntry
     {
         public long AuditID { get; set; }
         public string Action { get; set; } = string.Empty;
