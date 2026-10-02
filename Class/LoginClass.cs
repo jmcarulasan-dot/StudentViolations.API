@@ -73,8 +73,7 @@ namespace StudentViolations.API.Class
                     : "Enter your authenticator code to finish signing in.";
                 service.Data = new AuthenticationFlow
                 {
-                    RequiresAuthenticatorSetup = setup,
-                    RequiresAuthenticatorCode = !setup,
+                    NextStep = setup ? "setupAuthenticator" : "verifyAuthenticator",
                     ChallengeId = challengeId,
                     AuthenticatorUri = provisioningUri,
                     QrCodeDataUri = provisioningUri == null
