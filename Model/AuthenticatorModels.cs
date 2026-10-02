@@ -1,12 +1,12 @@
 namespace StudentViolations.API.Model
 {
-    public sealed class AuthenticatorCodeRequest
+    public class AuthenticatorCodeRequest
     {
         public string ChallengeId { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
     }
 
-    public sealed class AuthenticationFlow
+    public class AuthenticationFlow
     {
         public bool RequiresAuthenticatorSetup { get; set; }
         public bool RequiresAuthenticatorCode { get; set; }
@@ -19,7 +19,7 @@ namespace StudentViolations.API.Model
         public IReadOnlyList<string>? RecoveryCodes { get; set; }
     }
 
-    internal sealed class LoginAccount
+    internal class LoginAccount
     {
         public int StudentID { get; set; }
         public string Username { get; set; } = string.Empty;

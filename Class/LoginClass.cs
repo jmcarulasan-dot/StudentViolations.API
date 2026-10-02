@@ -29,18 +29,15 @@ namespace StudentViolations.API.Class
 
         public async Task<ServiceResponse<AuthenticationFlow>> Authenticate(string username, string password)
         {
-            await using var connection = new SqlConnection(_connectionString);
+            var service = new ServiceResponse<AuthenticationFlow>();
+            SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
                 await connection.OpenAsync();
-                var account = await connection.QueryFirstOrDefaultAsync<LoginAccount>(@"
-                    SELECT u.StudentID, u.Username, u.PasswordHash, u.Salt, u.FirstName, u.LastName,
-                           u.Role, u.StudentNo, ISNULL(s.Status, 'Active') AS Status,
-                           ISNULL(u.AuthenticatorEnabled, 0) AS AuthenticatorEnabled,
-                           u.AuthenticatorSecretProtected
-                    FROM dbo.Users u
-                    LEFT JOIN dbo.Students s ON u.StudentNo = s.StudentNo
-                    WHERE u.Username = @Username;", new { Username = username });
+                var account = await connection.QueryFirstOrDefaultAsync<LoginAccount>(
+                    "SP_AUTHENTICATOR_MFA",
+                    new { StatementType = "GETACCOUNT", Username = username },
+                    commandType: CommandType.StoredProcedure);
 
                 if (account == null || !PasswordMatches(password, account.Salt, account.PasswordHash))
                     return Failure(401, "Invalid username or password.");
@@ -55,34 +52,47 @@ namespace StudentViolations.API.Class
                     // Replace any unconfirmed enrollment with a fresh secret on a new password login.
                     manualKey = _authenticator.GenerateSecret();
                     account.AuthenticatorSecretProtected = _authenticator.Protect(manualKey);
-                    await connection.ExecuteAsync(@"
-                        UPDATE dbo.Users SET AuthenticatorSecretProtected = @Secret
-                        WHERE StudentID = @UserId AND AuthenticatorEnabled = 0;",
-                        new { Secret = account.AuthenticatorSecretProtected, UserId = account.StudentID });
+                    await connection.ExecuteAsync(
+                        "SP_AUTHENTICATOR_MFA",
+                        new
+                        {
+                            StatementType = "SETUPSECRET",
+                            UserID = account.StudentID,
+                            Secret = account.AuthenticatorSecretProtected
+                        },
+                        commandType: CommandType.StoredProcedure);
+
                     var issuer = _configuration["Authenticator:Issuer"] ?? "ACLC College of Mandaue SVS";
                     provisioningUri = _authenticator.CreateProvisioningUri(account.Username, manualKey, issuer);
                 }
 
                 var challengeId = await CreateChallenge(connection, account.StudentID, setup ? "Setup" : "Login");
-                return new ServiceResponse<AuthenticationFlow>
+                service.Status = 200;
+                service.Message = setup
+                    ? "Scan the QR code and verify a code to finish authenticator setup."
+                    : "Enter your authenticator code to finish signing in.";
+                service.Data = new AuthenticationFlow
                 {
-                    Status = 200,
-                    Message = setup ? "Scan the QR code and verify a code to finish authenticator setup." : "Enter your authenticator code to finish signing in.",
-                    Data = new AuthenticationFlow
-                    {
-                        RequiresAuthenticatorSetup = setup,
-                        RequiresAuthenticatorCode = !setup,
-                        ChallengeId = challengeId,
-                        AuthenticatorUri = provisioningUri,
-                        QrCodeDataUri = provisioningUri == null ? null : "data:image/png;base64," + Convert.ToBase64String(_authenticator.CreateQrPng(provisioningUri)),
-                        ManualEntryKey = manualKey
-                    }
+                    RequiresAuthenticatorSetup = setup,
+                    RequiresAuthenticatorCode = !setup,
+                    ChallengeId = challengeId,
+                    AuthenticatorUri = provisioningUri,
+                    QrCodeDataUri = provisioningUri == null
+                        ? null
+                        : "data:image/png;base64," + Convert.ToBase64String(_authenticator.CreateQrPng(provisioningUri)),
+                    ManualEntryKey = manualKey
                 };
             }
             catch (Exception ex)
             {
-                return Failure(500, $"Login error: {ex.Message}");
+                service.Status = 500;
+                service.Message = $"Login error: {ex.Message}";
             }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<AuthenticationFlow>> VerifyAuthenticatorCode(string challengeId, string code)
@@ -90,28 +100,31 @@ namespace StudentViolations.API.Class
             if (string.IsNullOrWhiteSpace(challengeId) || string.IsNullOrWhiteSpace(code))
                 return Failure(400, "Challenge ID and authenticator code are required.");
 
-            await using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-            await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+            var service = new ServiceResponse<AuthenticationFlow>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            SqlTransaction? transaction = null;
             try
             {
-                var challenge = await connection.QueryFirstOrDefaultAsync<ChallengeAccount>(@"
-                    SELECT c.UserID, c.Purpose, c.ExpiresAtUtc, c.FailedAttempts, c.IsUsed,
-                           u.StudentID, u.Username, u.FirstName, u.LastName, u.Role, u.StudentNo,
-                           u.AuthenticatorEnabled, u.AuthenticatorSecretProtected
-                    FROM dbo.AuthenticatorLoginChallenges c WITH (UPDLOCK, ROWLOCK)
-                    INNER JOIN dbo.Users u ON u.StudentID = c.UserID
-                    WHERE c.ChallengeHash = @Hash;",
-                    new { Hash = HashChallenge(challengeId) }, transaction);
+                await connection.OpenAsync();
+                transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted);
 
-                if (challenge == null || challenge.IsUsed || challenge.ExpiresAtUtc <= DateTime.UtcNow || challenge.FailedAttempts >= 5)
+                var challengeHash = HashChallenge(challengeId);
+                var challenge = await connection.QueryFirstOrDefaultAsync<ChallengeAccount>(
+                    "SP_AUTHENTICATOR_MFA",
+                    new { StatementType = "GETCHALLENGE", ChallengeHash = challengeHash },
+                    transaction,
+                    commandType: CommandType.StoredProcedure);
+
+                if (challenge == null || challenge.IsUsed || challenge.ExpiresAtUtc <= DateTime.UtcNow ||
+                    challenge.FailedAttempts >= 5)
                 {
                     await transaction.RollbackAsync();
                     return Failure(401, "This sign-in challenge is invalid or expired. Sign in again.");
                 }
 
                 var isSetup = challenge.Purpose == "Setup";
-                if (isSetup && challenge.AuthenticatorEnabled || !isSetup && !challenge.AuthenticatorEnabled ||
+                if ((isSetup && challenge.AuthenticatorEnabled) ||
+                    (!isSetup && !challenge.AuthenticatorEnabled) ||
                     string.IsNullOrWhiteSpace(challenge.AuthenticatorSecretProtected))
                 {
                     await transaction.RollbackAsync();
@@ -126,10 +139,16 @@ namespace StudentViolations.API.Class
                     var normalizedCode = AuthenticatorService.NormalizeRecoveryCode(code);
                     if (normalizedCode.Length >= 8)
                     {
-                        var deleted = await connection.ExecuteAsync(@"
-                            DELETE FROM dbo.AuthenticatorRecoveryCodes
-                            WHERE UserID = @UserId AND CodeHash = @CodeHash;",
-                            new { UserId = challenge.StudentID, CodeHash = AuthenticatorService.HashRecoveryCode(normalizedCode) }, transaction);
+                        var deleted = await connection.ExecuteAsync(
+                            "SP_AUTHENTICATOR_MFA",
+                            new
+                            {
+                                StatementType = "USE_RECOVERY_CODE",
+                                UserID = challenge.StudentID,
+                                CodeHash = AuthenticatorService.HashRecoveryCode(normalizedCode)
+                            },
+                            transaction,
+                            commandType: CommandType.StoredProcedure);
                         recoveryCode = deleted == 1;
                         valid = recoveryCode;
                     }
@@ -138,101 +157,131 @@ namespace StudentViolations.API.Class
                 if (!valid)
                 {
                     var attempts = challenge.FailedAttempts + 1;
-                    await connection.ExecuteAsync(@"
-                        UPDATE dbo.AuthenticatorLoginChallenges
-                        SET FailedAttempts = @Attempts, IsUsed = CASE WHEN @Attempts >= 5 THEN 1 ELSE IsUsed END
-                        WHERE ChallengeHash = @Hash;",
-                        new { Attempts = attempts, Hash = HashChallenge(challengeId) }, transaction);
+                    await connection.ExecuteAsync(
+                        "SP_AUTHENTICATOR_MFA",
+                        new { StatementType = "RECORD_FAILURE", ChallengeHash = challengeHash, FailedAttempts = attempts },
+                        transaction,
+                        commandType: CommandType.StoredProcedure);
                     await transaction.CommitAsync();
-                    return Failure(401, attempts >= 5 ? "Too many incorrect codes. Sign in again." : "Incorrect authenticator code.");
+                    return Failure(401, attempts >= 5
+                        ? "Too many incorrect codes. Sign in again."
+                        : "Incorrect authenticator code.");
                 }
 
                 IReadOnlyList<string>? recoveryCodes = null;
                 if (isSetup)
                 {
                     recoveryCodes = AuthenticatorService.GenerateRecoveryCodes();
-                    await connection.ExecuteAsync(@"
-                        UPDATE dbo.Users SET AuthenticatorEnabled = 1
-                        WHERE StudentID = @UserId AND AuthenticatorEnabled = 0;",
-                        new { UserId = challenge.StudentID }, transaction);
+                    await connection.ExecuteAsync(
+                        "SP_AUTHENTICATOR_MFA",
+                        new { StatementType = "ENABLE_AUTHENTICATOR", UserID = challenge.StudentID },
+                        transaction,
+                        commandType: CommandType.StoredProcedure);
                     foreach (var recovery in recoveryCodes)
                     {
-                        await connection.ExecuteAsync(@"
-                            INSERT INTO dbo.AuthenticatorRecoveryCodes (UserID, CodeHash)
-                            VALUES (@UserId, @CodeHash);",
-                            new { UserId = challenge.StudentID, CodeHash = AuthenticatorService.HashRecoveryCode(recovery) }, transaction);
+                        await connection.ExecuteAsync(
+                            "SP_AUTHENTICATOR_MFA",
+                            new
+                            {
+                                StatementType = "SAVE_RECOVERY_CODE",
+                                UserID = challenge.StudentID,
+                                CodeHash = AuthenticatorService.HashRecoveryCode(recovery)
+                            },
+                            transaction,
+                            commandType: CommandType.StoredProcedure);
                     }
                 }
 
-                await connection.ExecuteAsync(@"
-                    UPDATE dbo.AuthenticatorLoginChallenges SET IsUsed = 1
-                    WHERE ChallengeHash = @Hash;",
-                    new { Hash = HashChallenge(challengeId) }, transaction);
+                await connection.ExecuteAsync(
+                    "SP_AUTHENTICATOR_MFA",
+                    new { StatementType = "COMPLETE_CHALLENGE", ChallengeHash = challengeHash },
+                    transaction,
+                    commandType: CommandType.StoredProcedure);
 
                 if (string.Equals(challenge.Role, "Student", StringComparison.OrdinalIgnoreCase) &&
                     !string.IsNullOrWhiteSpace(challenge.StudentNo))
                 {
                     await connection.ExecuteAsync(
                         "UPDATE dbo.Students SET AppRegistered = 1 WHERE StudentNo = @StudentNo;",
-                        new { challenge.StudentNo }, transaction);
+                        new { StudentNo = challenge.StudentNo },
+                        transaction);
                 }
 
                 await transaction.CommitAsync();
-                return new ServiceResponse<AuthenticationFlow>
+                service.Status = 200;
+                service.Message = recoveryCode ? "Login successful using a recovery code." : "Login successful.";
+                service.Data = new AuthenticationFlow
                 {
-                    Status = 200,
-                    Message = recoveryCode ? "Login successful using a recovery code." : "Login successful.",
-                    Data = new AuthenticationFlow
+                    Role = challenge.Role,
+                    Token = GenerateToken(new LoginAccount
                     {
+                        StudentID = challenge.StudentID,
+                        Username = challenge.Username,
+                        FirstName = challenge.FirstName,
+                        LastName = challenge.LastName,
                         Role = challenge.Role,
-                        Token = GenerateToken(new LoginAccount
-                        {
-                            StudentID = challenge.StudentID,
-                            Username = challenge.Username,
-                            FirstName = challenge.FirstName,
-                            LastName = challenge.LastName,
-                            Role = challenge.Role,
-                            StudentNo = challenge.StudentNo
-                        }),
-                        RecoveryCodes = recoveryCodes
-                    }
+                        StudentNo = challenge.StudentNo
+                    }),
+                    RecoveryCodes = recoveryCodes
                 };
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
-                return Failure(500, $"Authenticator verification error: {ex.Message}");
+                if (transaction != null)
+                {
+                    try { await transaction.RollbackAsync(); }
+                    catch { }
+                }
+                service.Status = 500;
+                service.Message = $"Authenticator verification error: {ex.Message}";
             }
+            finally
+            {
+                transaction?.Dispose();
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<bool>> UserExists(string username, string email)
         {
-            await using var connection = new SqlConnection(_connectionString);
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
+                await connection.OpenAsync();
                 var result = await connection.QueryFirstOrDefaultAsync<int>(
                     "SP_STUDENT_GETUSERLOGIN",
                     new { username, email, statementType = "USEREXISTS" },
                     commandType: CommandType.StoredProcedure);
-                return new ServiceResponse<bool> { Status = 200, Data = result > 0 };
+                service.Status = 200;
+                service.Data = result > 0;
             }
             catch (Exception ex)
             {
-                return new ServiceResponse<bool> { Status = 500, Message = $"UserExists error: {ex.Message}" };
+                service.Status = 500;
+                service.Message = $"UserExists error: {ex.Message}";
             }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         private async Task<string> CreateChallenge(SqlConnection connection, int userId, string purpose)
         {
             var challengeId = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
-            await connection.ExecuteAsync(@"
-                UPDATE dbo.AuthenticatorLoginChallenges
-                SET IsUsed = 1
-                WHERE UserID = @UserId AND Purpose = @Purpose AND IsUsed = 0;
-                INSERT INTO dbo.AuthenticatorLoginChallenges
-                    (ChallengeHash, UserID, Purpose, ExpiresAtUtc, FailedAttempts, IsUsed, CreatedAtUtc)
-                VALUES (@Hash, @UserId, @Purpose, DATEADD(MINUTE, 5, SYSUTCDATETIME()), 0, 0, SYSUTCDATETIME());",
-                new { Hash = HashChallenge(challengeId), UserId = userId, Purpose = purpose });
+            await connection.ExecuteAsync(
+                "SP_AUTHENTICATOR_MFA",
+                new
+                {
+                    StatementType = "CREATE_CHALLENGE",
+                    ChallengeHash = HashChallenge(challengeId),
+                    UserID = userId,
+                    Purpose = purpose
+                },
+                commandType: CommandType.StoredProcedure);
             return challengeId;
         }
 

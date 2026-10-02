@@ -1,10 +1,11 @@
 using Dapper;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
-using System.Security.Cryptography;
+using Microsoft.Data.SqlClient;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using StudentViolations.API.Model.Response;
 using System.Data;
+using System.Security.Cryptography;
 
 namespace StudentViolations.API.Class
 {
@@ -21,127 +22,278 @@ namespace StudentViolations.API.Class
 
         public async Task<ServiceResponse<EnrollmentModel>> CreateEnrollment(EnrollmentModel enrollment)
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "CREATEENROLLMENT");
-            p.Add("@StudentNo", enrollment.StudentNo);
-            p.Add("@FirstName", enrollment.FirstName);
-            p.Add("@LastName", enrollment.LastName);
-            p.Add("@Email", enrollment.Email);
-            p.Add("@Course", enrollment.Course);
-            p.Add("@Year", enrollment.Year);
-            var result = await connection.QueryFirstOrDefaultAsync<EnrollmentModel>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
-            return result == null || string.IsNullOrWhiteSpace(result.StudentNo)
-                ? new ServiceResponse<EnrollmentModel> { Status = 400, Message = "Enrollment could not be created." }
-                : new ServiceResponse<EnrollmentModel> { Status = 200, Message = "Enrollment record saved.", Data = result };
+            var service = new ServiceResponse<EnrollmentModel>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "CREATEENROLLMENT");
+                param.Add("@StudentNo", enrollment.StudentNo);
+                param.Add("@FirstName", enrollment.FirstName);
+                param.Add("@LastName", enrollment.LastName);
+                param.Add("@Email", enrollment.Email);
+                param.Add("@Course", enrollment.Course);
+                param.Add("@Year", enrollment.Year);
+
+                var result = await connection.QueryFirstOrDefaultAsync<EnrollmentModel>(
+                    "SP_ADMISSION", param, commandType: CommandType.StoredProcedure);
+                if (result == null || string.IsNullOrWhiteSpace(result.StudentNo))
+                {
+                    service.Status = 400;
+                    service.Message = "Enrollment could not be created.";
+                    service.Data = null;
+                }
+                else
+                {
+                    service.Status = 200;
+                    service.Message = "Enrollment record saved.";
+                    service.Data = result;
+                }
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"CreateEnrollment error: {ex.Message}";
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<List<EnrollmentModel>>> GetEnrollments()
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "GETENROLLMENTS");
-            var data = (await connection.QueryAsync<EnrollmentModel>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure)).ToList();
-            return new ServiceResponse<List<EnrollmentModel>> { Status = 200, Message = "Enrollments retrieved.", Data = data };
+            var service = new ServiceResponse<List<EnrollmentModel>>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "GETENROLLMENTS");
+                var result = await connection.QueryAsync<EnrollmentModel>(
+                    "SP_ADMISSION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Enrollments retrieved.";
+                service.Data = result.ToList();
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"GetEnrollments error: {ex.Message}";
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<List<RegistrationRequestModel>>> GetRegistrationRequests()
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "GETREGISTRATIONREQUESTS");
-            var data = (await connection.QueryAsync<RegistrationRequestModel>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure)).ToList();
-            return new ServiceResponse<List<RegistrationRequestModel>> { Status = 200, Message = "Registration requests retrieved.", Data = data };
+            var service = new ServiceResponse<List<RegistrationRequestModel>>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "GETREGISTRATIONREQUESTS");
+                var result = await connection.QueryAsync<RegistrationRequestModel>(
+                    "SP_ADMISSION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Registration requests retrieved.";
+                service.Data = result.ToList();
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"GetRegistrationRequests error: {ex.Message}";
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<bool>> SubmitRegistrationRequest(StudentRegistrationRequestModel request)
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "SUBMITREGISTRATION");
-            p.Add("@StudentNo", request.StudentNo);
-            p.Add("@Email", request.Email);
-            p.Add("@Username", request.Username);
-            var saltBytes = RandomNumberGenerator.GetBytes(16);
-            var salt = Convert.ToBase64String(saltBytes);
-            var hash = Convert.ToBase64String(KeyDerivation.Pbkdf2(request.Password, saltBytes, KeyDerivationPrf.HMACSHA256, 10000, 32));
-            p.Add("@PasswordHash", hash);
-            p.Add("@Salt", salt);
-            
-            var result = await connection.QueryFirstOrDefaultAsync<dynamic>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
-            if (result == null || (int)result.Success != 1)
-                return new ServiceResponse<bool> { Status = 400, Message = (string?)result?.Message ?? "Registration request was rejected.", Data = false };
-            return new ServiceResponse<bool> { Status = 200, Message = "Registration request submitted for Admission verification.", Data = true };
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
+            {
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "SUBMITREGISTRATION");
+                param.Add("@StudentNo", request.StudentNo);
+                param.Add("@Email", request.Email);
+                param.Add("@Username", request.Username);
+                var saltBytes = RandomNumberGenerator.GetBytes(16);
+                var salt = Convert.ToBase64String(saltBytes);
+                var hash = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                    request.Password, saltBytes, KeyDerivationPrf.HMACSHA256, 10000, 32));
+                param.Add("@PasswordHash", hash);
+                param.Add("@Salt", salt);
+
+                var result = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                    "SP_ADMISSION", param, commandType: CommandType.StoredProcedure);
+                if (result == null || (int)result.Success != 1)
+                {
+                    service.Status = 400;
+                    service.Message = (string?)result?.Message ?? "Registration request was rejected.";
+                    service.Data = false;
+                }
+                else
+                {
+                    service.Status = 200;
+                    service.Message = "Registration request submitted for Admission verification.";
+                    service.Data = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"SubmitRegistrationRequest error: {ex.Message}";
+                service.Data = false;
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<UserModel>> ApproveRegistration(int requestId)
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "APPROVEREGISTRATION");
-            p.Add("@RequestId", requestId);
-            var user = await connection.QueryFirstOrDefaultAsync<UserModel>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
-            if (user == null)
-                return new ServiceResponse<UserModel> { Status = 400, Message = "Registration request could not be approved." };
-
-            var emailSent = await _emailRepository.SendEmailAsync(
-                user.Email,
-                "SVS Account Approved",
-                $"<p>Hello {user.FirstName},</p><p>Your Student Violations System account has been verified by Admission and successfully created.</p><p>You may now log in to the SVS mobile application.</p><p>Username: <b>{user.Username}</b></p>");
-
-            return new ServiceResponse<UserModel>
+            var service = new ServiceResponse<UserModel>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
             {
-                Status = 200,
-                Message = emailSent
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "APPROVEREGISTRATION");
+                param.Add("@RequestId", requestId);
+                var user = await connection.QueryFirstOrDefaultAsync<UserModel>(
+                    "SP_ADMISSION", param, commandType: CommandType.StoredProcedure);
+                connection.Close();
+
+                if (user == null)
+                {
+                    service.Status = 400;
+                    service.Message = "Registration request could not be approved.";
+                    return service;
+                }
+
+                var emailSent = await _emailRepository.SendEmailAsync(
+                    user.Email,
+                    "SVS Account Approved",
+                    $"<p>Hello {user.FirstName},</p><p>Your Student Violations System account has been verified by Admission and successfully created.</p><p>You may now log in to the SVS mobile application.</p><p>Username: <b>{user.Username}</b></p>");
+
+                service.Status = 200;
+                service.Message = emailSent
                     ? "Student account approved, created, and email sent."
-                    : "Student account approved and created, but the confirmation email could not be sent. Configure EmailSettings.",
-                Data = user
-            };
+                    : "Student account approved and created, but the confirmation email could not be sent. Configure EmailSettings.";
+                service.Data = user;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"ApproveRegistration error: {ex.Message}";
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<bool>> RejectRegistration(int requestId)
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "REJECTREGISTRATION");
-            p.Add("@RequestId", requestId);
-            var result = await connection.QueryFirstOrDefaultAsync<dynamic>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
-            return new ServiceResponse<bool>
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
             {
-                Status = (result != null && (int)result.Success == 1) ? 200 : 400,
-                Message = (string?)result?.Message ?? "Registration request could not be rejected.",
-                Data = result != null && (int)result.Success == 1
-            };
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "REJECTREGISTRATION");
+                param.Add("@RequestId", requestId);
+                var result = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                    "SP_ADMISSION", param, commandType: CommandType.StoredProcedure);
+                var succeeded = result != null && (int)result.Success == 1;
+                service.Status = succeeded ? 200 : 400;
+                service.Message = (string?)result?.Message ?? "Registration request could not be rejected.";
+                service.Data = succeeded;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"RejectRegistration error: {ex.Message}";
+                service.Data = false;
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<bool>> CanSignClearance(string studentNo)
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "CANCLEARANCE");
-            p.Add("@StudentNo", studentNo);
-            var result = await connection.QueryFirstOrDefaultAsync<dynamic>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
-            return new ServiceResponse<bool>
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
             {
-                Status = 200,
-                Message = (string?)result?.Message ?? "Clearance status checked.",
-                Data = result != null && (int)result.CanSign == 1
-            };
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "CANCLEARANCE");
+                param.Add("@StudentNo", studentNo);
+                var result = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                    "SP_ADMISSION", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = (string?)result?.Message ?? "Clearance status checked.";
+                service.Data = result != null && (int)result.CanSign == 1;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"CanSignClearance error: {ex.Message}";
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<bool>> SignClearance(string studentNo)
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "SIGNCLEARANCE");
-            p.Add("@StudentNo", studentNo);
-            var result = await connection.QueryFirstOrDefaultAsync<dynamic>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
-            return new ServiceResponse<bool>
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
+            try
             {
-                Status = (result != null && (int)result.Success == 1) ? 200 : 400,
-                Message = (string?)result?.Message ?? "Clearance could not be signed.",
-                Data = result != null && (int)result.Success == 1
-            };
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "SIGNCLEARANCE");
+                param.Add("@StudentNo", studentNo);
+                var result = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                    "SP_ADMISSION", param, commandType: CommandType.StoredProcedure);
+                var succeeded = result != null && (int)result.Success == 1;
+                service.Status = succeeded ? 200 : 400;
+                service.Message = (string?)result?.Message ?? "Clearance could not be signed.";
+                service.Data = succeeded;
+            }
+            catch (Exception ex)
+            {
+                service.Status = 500;
+                service.Message = $"SignClearance error: {ex.Message}";
+                service.Data = false;
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
     }
 }

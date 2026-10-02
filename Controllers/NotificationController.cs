@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.IRepository;
+using StudentViolations.API.Model;
 using System.Security.Claims;
 
 namespace StudentViolations.API.Controllers
@@ -84,17 +85,16 @@ namespace StudentViolations.API.Controllers
         [HttpPost("fcm-token")]
         public async Task<IActionResult> SaveFCMToken([FromBody] FCMRequest request)
         {
+            if (request == null || string.IsNullOrWhiteSpace(request.FCMToken))
+                return BadRequest(new { status = 400, message = "FCM token is required." });
+
             var username = User.FindFirstValue(ClaimTypes.Name);
             if (string.IsNullOrEmpty(username))
                 return Unauthorized(new { status = 401, message = "User not found." });
 
-            await _notificationRepository.SaveFCMToken(username, request.FCMToken);
+            await _notificationRepository.SaveFCMToken(username, request.FCMToken.Trim());
             return Ok(new { status = 200, message = "Token saved." });
         }
 
-        public class FCMRequest
-        {
-            public string FCMToken { get; set; }
-        }
     }
 }

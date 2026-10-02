@@ -3,62 +3,83 @@ using Microsoft.Data.SqlClient;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using StudentViolations.API.Model.Response;
+using System.Data;
 
 namespace StudentViolations.API.Class
 {
-    public sealed class AuditTrailClass : IAuditTrailRepository
+    public class AuditTrailClass : IAuditTrailRepository
     {
         private readonly string _connectionString;
 
         public AuditTrailClass(IConfiguration configuration)
         {
-            _connectionString = configuration.GetConnectionString("StudentViolationsdb")
-                ?? throw new InvalidOperationException("StudentViolationsdb connection string is missing.");
+            _connectionString = configuration.GetConnectionString("StudentViolationsdb");
         }
 
         public async Task<ServiceResponse<bool>> RecordAsync(AuditTrailEntry entry)
         {
-            var response = new ServiceResponse<bool>();
+            var service = new ServiceResponse<bool>();
+            SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
-                await using var connection = new SqlConnection(_connectionString);
-                await connection.ExecuteAsync(@"
-INSERT INTO dbo.AuditTrail
-    (Action, EntityType, EntityID, StudentNo, PreviousValue, NewValue, Remarks, ActorUsername, ActorRole, CreatedAtUtc)
-VALUES
-    (@Action, @EntityType, @EntityID, @StudentNo, @PreviousValue, @NewValue, @Remarks, @ActorUsername, @ActorRole, SYSUTCDATETIME());", entry);
-                response.Status = 200;
-                response.Data = true;
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "INSERT");
+                param.Add("@Action", entry.Action);
+                param.Add("@EntityType", entry.EntityType);
+                param.Add("@EntityID", entry.EntityID);
+                param.Add("@StudentNo", entry.StudentNo);
+                param.Add("@PreviousValue", entry.PreviousValue);
+                param.Add("@NewValue", entry.NewValue);
+                param.Add("@Remarks", entry.Remarks);
+                param.Add("@ActorUsername", entry.ActorUsername);
+                param.Add("@ActorRole", entry.ActorRole);
+                await connection.ExecuteAsync(
+                    "SP_AUDIT_TRAIL", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Audit record saved.";
+                service.Data = true;
             }
             catch (Exception ex)
             {
-                response.Status = 500;
-                response.Message = $"Audit record failed: {ex.Message}";
+                service.Status = 500;
+                service.Message = $"RecordAsync error: {ex.Message}";
+                service.Data = false;
             }
-            return response;
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
 
         public async Task<ServiceResponse<List<AuditTrailEntry>>> GetRecentAsync(int take, string? studentNo = null)
         {
-            var response = new ServiceResponse<List<AuditTrailEntry>>();
+            var service = new ServiceResponse<List<AuditTrailEntry>>();
+            SqlConnection connection = new SqlConnection(_connectionString);
             try
             {
-                await using var connection = new SqlConnection(_connectionString);
-                var rows = await connection.QueryAsync<AuditTrailEntry>(@"
-SELECT TOP (@Take) AuditID, Action, EntityType, EntityID, StudentNo, PreviousValue, NewValue,
-       Remarks, ActorUsername, ActorRole, CreatedAtUtc
-FROM dbo.AuditTrail
-WHERE (@StudentNo IS NULL OR StudentNo = @StudentNo)
-ORDER BY AuditID DESC;", new { Take = take, StudentNo = studentNo });
-                response.Status = 200;
-                response.Data = rows.ToList();
+                await connection.OpenAsync();
+                DynamicParameters param = new DynamicParameters();
+                param.Add("@statementType", "GETRECENT");
+                param.Add("@Take", take);
+                param.Add("@StudentNo", studentNo);
+                var result = await connection.QueryAsync<AuditTrailEntry>(
+                    "SP_AUDIT_TRAIL", param, commandType: CommandType.StoredProcedure);
+                service.Status = 200;
+                service.Message = "Audit history retrieved.";
+                service.Data = result.ToList();
             }
             catch (Exception ex)
             {
-                response.Status = 500;
-                response.Message = $"Audit history could not be loaded: {ex.Message}";
+                service.Status = 500;
+                service.Message = $"GetRecentAsync error: {ex.Message}";
             }
-            return response;
+            finally
+            {
+                connection.Close();
+            }
+            return service;
         }
     }
 }

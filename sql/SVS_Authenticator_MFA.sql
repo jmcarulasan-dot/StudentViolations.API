@@ -45,3 +45,103 @@ BEGIN
         ON dbo.AuthenticatorRecoveryCodes(UserID);
 END;
 GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_AUTHENTICATOR_MFA
+    @statementType VARCHAR(40),
+    @Username NVARCHAR(256) = NULL,
+    @UserID INT = NULL,
+    @Secret NVARCHAR(1000) = NULL,
+    @ChallengeHash CHAR(64) = NULL,
+    @Purpose VARCHAR(10) = NULL,
+    @CodeHash CHAR(64) = NULL,
+    @FailedAttempts TINYINT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @statementType = 'GETACCOUNT'
+    BEGIN
+        SELECT u.StudentID, u.Username, u.PasswordHash, u.Salt, u.FirstName, u.LastName,
+               u.Role, u.StudentNo, ISNULL(s.Status, 'Active') AS Status,
+               ISNULL(u.AuthenticatorEnabled, 0) AS AuthenticatorEnabled,
+               u.AuthenticatorSecretProtected
+        FROM dbo.Users u
+        LEFT JOIN dbo.Students s ON u.StudentNo = s.StudentNo
+        WHERE u.Username = @Username;
+        RETURN;
+    END;
+
+    IF @statementType = 'SETUPSECRET'
+    BEGIN
+        UPDATE dbo.Users
+        SET AuthenticatorSecretProtected = @Secret
+        WHERE StudentID = @UserID AND AuthenticatorEnabled = 0;
+        RETURN;
+    END;
+
+    IF @statementType = 'CREATE_CHALLENGE'
+    BEGIN
+        UPDATE dbo.AuthenticatorLoginChallenges
+        SET IsUsed = 1
+        WHERE UserID = @UserID AND Purpose = @Purpose AND IsUsed = 0;
+
+        INSERT INTO dbo.AuthenticatorLoginChallenges
+            (ChallengeHash, UserID, Purpose, ExpiresAtUtc, FailedAttempts, IsUsed, CreatedAtUtc)
+        VALUES
+            (@ChallengeHash, @UserID, @Purpose, DATEADD(MINUTE, 5, SYSUTCDATETIME()), 0, 0, SYSUTCDATETIME());
+        RETURN;
+    END;
+
+    IF @statementType = 'GETCHALLENGE'
+    BEGIN
+        SELECT c.UserID, c.Purpose, c.ExpiresAtUtc, c.FailedAttempts, c.IsUsed,
+               u.StudentID, u.Username, u.FirstName, u.LastName, u.Role, u.StudentNo,
+               u.AuthenticatorEnabled, u.AuthenticatorSecretProtected
+        FROM dbo.AuthenticatorLoginChallenges c WITH (UPDLOCK, ROWLOCK)
+        INNER JOIN dbo.Users u ON u.StudentID = c.UserID
+        WHERE c.ChallengeHash = @ChallengeHash;
+        RETURN;
+    END;
+
+    IF @statementType = 'USE_RECOVERY_CODE'
+    BEGIN
+        DELETE FROM dbo.AuthenticatorRecoveryCodes
+        WHERE UserID = @UserID AND CodeHash = @CodeHash;
+        RETURN;
+    END;
+
+    IF @statementType = 'RECORD_FAILURE'
+    BEGIN
+        UPDATE dbo.AuthenticatorLoginChallenges
+        SET FailedAttempts = @FailedAttempts,
+            IsUsed = CASE WHEN @FailedAttempts >= 5 THEN 1 ELSE IsUsed END
+        WHERE ChallengeHash = @ChallengeHash;
+        RETURN;
+    END;
+
+    IF @statementType = 'ENABLE_AUTHENTICATOR'
+    BEGIN
+        UPDATE dbo.Users
+        SET AuthenticatorEnabled = 1
+        WHERE StudentID = @UserID AND AuthenticatorEnabled = 0;
+        RETURN;
+    END;
+
+    IF @statementType = 'SAVE_RECOVERY_CODE'
+    BEGIN
+        INSERT INTO dbo.AuthenticatorRecoveryCodes (UserID, CodeHash)
+        VALUES (@UserID, @CodeHash);
+        RETURN;
+    END;
+
+    IF @statementType = 'COMPLETE_CHALLENGE'
+    BEGIN
+        UPDATE dbo.AuthenticatorLoginChallenges
+        SET IsUsed = 1
+        WHERE ChallengeHash = @ChallengeHash;
+        RETURN;
+    END;
+
+    THROW 50002, 'Unsupported SP_AUTHENTICATOR_MFA statement type.', 1;
+END;
+GO
