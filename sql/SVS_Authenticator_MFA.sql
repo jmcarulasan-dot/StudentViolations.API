@@ -54,7 +54,8 @@ CREATE OR ALTER PROCEDURE dbo.SP_AUTHENTICATOR_MFA
     @ChallengeHash CHAR(64) = NULL,
     @Purpose VARCHAR(10) = NULL,
     @CodeHash CHAR(64) = NULL,
-    @FailedAttempts TINYINT = NULL
+    @FailedAttempts TINYINT = NULL,
+    @StudentNo NVARCHAR(50) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -139,6 +140,14 @@ BEGIN
         UPDATE dbo.AuthenticatorLoginChallenges
         SET IsUsed = 1
         WHERE ChallengeHash = @ChallengeHash;
+        RETURN;
+    END;
+
+    IF @statementType = 'MARK_APP_REGISTERED'
+    BEGIN
+        UPDATE dbo.Students
+        SET AppRegistered = 1
+        WHERE StudentNo = @StudentNo;
         RETURN;
     END;
 

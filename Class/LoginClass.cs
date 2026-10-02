@@ -202,9 +202,10 @@ namespace StudentViolations.API.Class
                     !string.IsNullOrWhiteSpace(challenge.StudentNo))
                 {
                     await connection.ExecuteAsync(
-                        "UPDATE dbo.Students SET AppRegistered = 1 WHERE StudentNo = @StudentNo;",
-                        new { StudentNo = challenge.StudentNo },
-                        transaction);
+                        "SP_AUTHENTICATOR_MFA",
+                        new { StatementType = "MARK_APP_REGISTERED", StudentNo = challenge.StudentNo },
+                        transaction,
+                        commandType: CommandType.StoredProcedure);
                 }
 
                 await transaction.CommitAsync();
