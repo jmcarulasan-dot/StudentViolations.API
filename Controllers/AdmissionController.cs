@@ -127,7 +127,7 @@ namespace StudentViolations.API.Controllers
 
         private static bool IsValidStudentNumber(string? studentNo) =>
             !string.IsNullOrWhiteSpace(studentNo) &&
-            Regex.IsMatch(studentNo.Trim(), @"^[A-Za-z0-9]{3}-\\d{2}-\\d{4}-[A-Za-z0-9]{6}$");
+            Regex.IsMatch(studentNo.Trim(), @"^[A-Za-z0-9]{3}-\d{2}-\d{4}-[A-Za-z0-9]{6}$");
 
         [HttpGet("students/{studentNo}/clearance")]
         public async Task<IActionResult> CheckClearance(string studentNo)
