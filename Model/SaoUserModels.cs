@@ -17,6 +17,7 @@ namespace StudentViolations.API.Model
         public string? StudentNo { get; set; }
         public string? ProfilePhoto { get; set; }
         public DateTime? RegistrationDate { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 
     public sealed class SaoUserUpdateRequest
