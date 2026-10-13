@@ -32,7 +32,7 @@ namespace StudentViolations.API.Class
             p.Add("@Year", enrollment.Year);
             var result = await connection.QueryFirstOrDefaultAsync<EnrollmentModel>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
             return result == null || string.IsNullOrWhiteSpace(result.StudentNo)
-                ? new ServiceResponse<EnrollmentModel> { Status = 400, Message = "Enrollment could not be created." }
+                ? new ServiceResponse<EnrollmentModel> { Status = 409, Message = result?.ErrorMessage ?? "Student ID is already taken." }
                 : new ServiceResponse<EnrollmentModel> { Status = 200, Message = "Enrollment record saved.", Data = result };
         }
 
@@ -60,7 +60,15 @@ namespace StudentViolations.API.Class
             var p = new DynamicParameters();
             p.Add("@statementType", "SUBMITREGISTRATION");
             p.Add("@StudentNo", request.StudentNo);
+            p.Add("@FirstName", request.FirstName);
+            p.Add("@LastName", request.LastName);
+            p.Add("@DateOfBirth", request.DateOfBirth);
+            p.Add("@Gender", request.Gender);
+            p.Add("@Address", request.Address);
+            p.Add("@ContactNumber", request.ContactNumber);
             p.Add("@Email", request.Email);
+            p.Add("@Course", request.Course);
+            p.Add("@Year", request.Year);
             p.Add("@Username", request.Username);
             var saltBytes = RandomNumberGenerator.GetBytes(16);
             var salt = Convert.ToBase64String(saltBytes);
