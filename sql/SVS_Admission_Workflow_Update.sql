@@ -42,9 +42,17 @@ BEGIN
     CREATE TABLE dbo.StudentRegistrationRequests
     (
         RequestId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        EnrollmentId INT NOT NULL,
+        EnrollmentId INT NULL,
         StudentNo VARCHAR(50) NOT NULL,
+        FirstName VARCHAR(50) NULL,
+        LastName VARCHAR(50) NULL,
+        DateOfBirth DATE NULL,
+        Gender VARCHAR(10) NULL,
+        Address VARCHAR(100) NULL,
+        ContactNumber VARCHAR(20) NULL,
         Email VARCHAR(50) NOT NULL,
+        Course VARCHAR(50) NULL,
+        Year VARCHAR(20) NULL,
         Username VARCHAR(50) NOT NULL,
         PasswordHash VARCHAR(255) NOT NULL,
         Salt VARCHAR(255) NOT NULL,
@@ -55,6 +63,32 @@ BEGIN
             FOREIGN KEY (EnrollmentId) REFERENCES dbo.StudentEnrollments(EnrollmentId)
     )
 END
+GO
+
+IF EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.StudentRegistrationRequests')
+      AND name = 'EnrollmentId' AND is_nullable = 0
+)
+    ALTER TABLE dbo.StudentRegistrationRequests ALTER COLUMN EnrollmentId INT NULL;
+GO
+
+IF COL_LENGTH('dbo.StudentRegistrationRequests', 'FirstName') IS NULL
+    ALTER TABLE dbo.StudentRegistrationRequests ADD FirstName VARCHAR(50) NULL;
+IF COL_LENGTH('dbo.StudentRegistrationRequests', 'LastName') IS NULL
+    ALTER TABLE dbo.StudentRegistrationRequests ADD LastName VARCHAR(50) NULL;
+IF COL_LENGTH('dbo.StudentRegistrationRequests', 'DateOfBirth') IS NULL
+    ALTER TABLE dbo.StudentRegistrationRequests ADD DateOfBirth DATE NULL;
+IF COL_LENGTH('dbo.StudentRegistrationRequests', 'Gender') IS NULL
+    ALTER TABLE dbo.StudentRegistrationRequests ADD Gender VARCHAR(10) NULL;
+IF COL_LENGTH('dbo.StudentRegistrationRequests', 'Address') IS NULL
+    ALTER TABLE dbo.StudentRegistrationRequests ADD Address VARCHAR(100) NULL;
+IF COL_LENGTH('dbo.StudentRegistrationRequests', 'ContactNumber') IS NULL
+    ALTER TABLE dbo.StudentRegistrationRequests ADD ContactNumber VARCHAR(20) NULL;
+IF COL_LENGTH('dbo.StudentRegistrationRequests', 'Course') IS NULL
+    ALTER TABLE dbo.StudentRegistrationRequests ADD Course VARCHAR(50) NULL;
+IF COL_LENGTH('dbo.StudentRegistrationRequests', 'Year') IS NULL
+    ALTER TABLE dbo.StudentRegistrationRequests ADD Year VARCHAR(20) NULL;
 GO
 
 IF OBJECT_ID('dbo.StudentClearances', 'U') IS NULL
@@ -81,7 +115,11 @@ CREATE OR ALTER PROCEDURE dbo.SP_ADMISSION
     @Year VARCHAR(20) = NULL,
     @Username VARCHAR(50) = NULL,
     @PasswordHash VARCHAR(255) = NULL,
-    @Salt VARCHAR(255) = NULL
+    @Salt VARCHAR(255) = NULL,
+    @DateOfBirth DATE = NULL,
+    @Gender VARCHAR(10) = NULL,
+    @Address VARCHAR(100) = NULL,
+    @ContactNumber VARCHAR(20) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -89,9 +127,11 @@ BEGIN
     BEGIN TRY
         IF (@statementType = 'CREATEENROLLMENT')
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.StudentEnrollments WHERE StudentNo = @StudentNo)
+            IF EXISTS (SELECT 1 FROM dbo.StudentEnrollments WHERE UPPER(LTRIM(RTRIM(StudentNo))) = UPPER(LTRIM(RTRIM(@StudentNo))))
+               OR EXISTS (SELECT 1 FROM dbo.Students WHERE UPPER(LTRIM(RTRIM(StudentNo))) = UPPER(LTRIM(RTRIM(@StudentNo))))
+               OR EXISTS (SELECT 1 FROM dbo.Users WHERE UPPER(LTRIM(RTRIM(StudentNo))) = UPPER(LTRIM(RTRIM(@StudentNo))))
             BEGIN
-                SELECT NULL AS StudentNo, 'Enrollment already exists.' AS ErrorMessage;
+                SELECT NULL AS StudentNo, 'Student ID is already taken.' AS ErrorMessage;
                 RETURN;
             END
 
@@ -109,44 +149,59 @@ BEGIN
         BEGIN
             SELECT StudentNo, FirstName, LastName, Email, Course, Year
             FROM dbo.StudentEnrollments
+            UNION
+            SELECT s.StudentNo, s.FirstName, s.LastName, s.Email, s.Course, CAST(s.Year AS VARCHAR(20)) AS Year
+            FROM dbo.Students s
+            WHERE NOT EXISTS (
+                SELECT 1 FROM dbo.StudentEnrollments e
+                WHERE UPPER(LTRIM(RTRIM(e.StudentNo))) = UPPER(LTRIM(RTRIM(s.StudentNo)))
+            )
             ORDER BY LastName, FirstName;
         END
 
         ELSE IF (@statementType = 'SUBMITREGISTRATION')
         BEGIN
-            DECLARE @MatchedEnrollmentId INT;
-
-            SELECT @MatchedEnrollmentId = EnrollmentId
-            FROM dbo.StudentEnrollments
-            WHERE StudentNo = @StudentNo
-              AND LOWER(ISNULL(Email, '')) = LOWER(@Email)
-              AND EnrollmentStatus = 'Active';
-
-            IF @MatchedEnrollmentId IS NULL
+            IF EXISTS (
+                SELECT 1 FROM dbo.Users
+                WHERE UPPER(LTRIM(RTRIM(ISNULL(StudentNo, '')))) = UPPER(LTRIM(RTRIM(@StudentNo)))
+            )
             BEGIN
-                SELECT 0 AS Success, 'The submitted information does not match an active enrollment record.' AS Message;
+                SELECT 0 AS Success, 'An account already exists for this student ID.' AS Message;
                 RETURN;
             END
 
-            IF EXISTS (SELECT 1 FROM dbo.Users WHERE Username = @Username OR Email = @Email)
+            IF EXISTS (
+                SELECT 1 FROM dbo.Users
+                WHERE LOWER(LTRIM(RTRIM(Username))) = LOWER(LTRIM(RTRIM(@Username)))
+                   OR LOWER(LTRIM(RTRIM(Email))) = LOWER(LTRIM(RTRIM(@Email)))
+            )
             BEGIN
                 SELECT 0 AS Success, 'Username or email is already registered.' AS Message;
                 RETURN;
             END
 
-            IF EXISTS (SELECT 1 FROM dbo.StudentRegistrationRequests
-                       WHERE EnrollmentId = @MatchedEnrollmentId AND RequestStatus = 'Pending')
+            IF EXISTS (
+                SELECT 1 FROM dbo.StudentRegistrationRequests
+                WHERE RequestStatus = 'Pending'
+                  AND (
+                      UPPER(LTRIM(RTRIM(StudentNo))) = UPPER(LTRIM(RTRIM(@StudentNo)))
+                      OR LOWER(LTRIM(RTRIM(Username))) = LOWER(LTRIM(RTRIM(@Username)))
+                      OR LOWER(LTRIM(RTRIM(Email))) = LOWER(LTRIM(RTRIM(@Email)))
+                  )
+            )
             BEGIN
-                SELECT 0 AS Success, 'A registration request is already pending for this student.' AS Message;
+                SELECT 0 AS Success, 'A registration request for this student ID, username, or email is already pending.' AS Message;
                 RETURN;
             END
 
             INSERT INTO dbo.StudentRegistrationRequests
-            (EnrollmentId, StudentNo, Email, Username, PasswordHash, Salt)
+            (EnrollmentId, StudentNo, FirstName, LastName, DateOfBirth, Gender, Address, ContactNumber,
+             Email, Course, Year, Username, PasswordHash, Salt)
             VALUES
-            (@MatchedEnrollmentId, @StudentNo, @Email, @Username, @PasswordHash, @Salt);
+            (NULL, @StudentNo, @FirstName, @LastName, @DateOfBirth, @Gender, @Address, @ContactNumber,
+             @Email, @Course, @Year, @Username, @PasswordHash, @Salt);
 
-            SELECT 1 AS Success, 'Registration request submitted for Admission verification.' AS Message;
+            SELECT 1 AS Success, 'Registration request submitted for Admission approval.' AS Message;
         END
 
         ELSE IF (@statementType = 'GETREGISTRATIONREQUESTS')
@@ -154,13 +209,16 @@ BEGIN
             SELECT
                 r.RequestId,
                 r.StudentNo,
-                e.FirstName,
-                e.LastName,
+                COALESCE(NULLIF(r.FirstName, ''), e.FirstName, s.FirstName, '') AS FirstName,
+                COALESCE(NULLIF(r.LastName, ''), e.LastName, s.LastName, '') AS LastName,
                 r.Email,
                 r.Username,
+                COALESCE(r.Course, e.Course, s.Course, '') AS Course,
+                COALESCE(r.Year, e.Year, CAST(s.Year AS VARCHAR(20)), '') AS Year,
                 r.RequestStatus
             FROM dbo.StudentRegistrationRequests r
-            INNER JOIN dbo.StudentEnrollments e ON e.EnrollmentId = r.EnrollmentId
+            LEFT JOIN dbo.StudentEnrollments e ON e.EnrollmentId = r.EnrollmentId
+            LEFT JOIN dbo.Students s ON UPPER(LTRIM(RTRIM(s.StudentNo))) = UPPER(LTRIM(RTRIM(r.StudentNo)))
             WHERE r.RequestStatus = 'Pending'
             ORDER BY r.SubmittedAt ASC;
         END
@@ -170,20 +228,23 @@ BEGIN
             BEGIN TRANSACTION;
 
             DECLARE @EnrollmentId2 INT, @StudentNo2 VARCHAR(50), @Email2 VARCHAR(50),
-                    @Username2 VARCHAR(50), @PasswordHash2 VARCHAR(255), @Salt2 VARCHAR(255);
+                    @Username2 VARCHAR(50), @PasswordHash2 VARCHAR(255), @Salt2 VARCHAR(255),
+                    @FirstName2 VARCHAR(50), @LastName2 VARCHAR(50), @DateOfBirth2 DATE,
+                    @Gender2 VARCHAR(10), @Address2 VARCHAR(100), @ContactNumber2 VARCHAR(20),
+                    @Course2 VARCHAR(50), @Year2 VARCHAR(20);
 
             SELECT
-                @EnrollmentId2 = r.EnrollmentId,
-                @StudentNo2 = r.StudentNo,
-                @Email2 = r.Email,
-                @Username2 = r.Username,
-                @PasswordHash2 = r.PasswordHash,
-                @Salt2 = r.Salt
-            FROM dbo.StudentRegistrationRequests r
-            WHERE r.RequestId = @RequestId
-              AND r.RequestStatus = 'Pending';
+                @EnrollmentId2 = EnrollmentId, @StudentNo2 = StudentNo,
+                @Email2 = Email, @Username2 = Username,
+                @PasswordHash2 = PasswordHash, @Salt2 = Salt,
+                @FirstName2 = FirstName, @LastName2 = LastName,
+                @DateOfBirth2 = DateOfBirth, @Gender2 = Gender,
+                @Address2 = Address, @ContactNumber2 = ContactNumber,
+                @Course2 = Course, @Year2 = Year
+            FROM dbo.StudentRegistrationRequests
+            WHERE RequestId = @RequestId AND RequestStatus = 'Pending';
 
-            IF @EnrollmentId2 IS NULL
+            IF @StudentNo2 IS NULL
             BEGIN
                 ROLLBACK TRANSACTION;
                 SELECT NULL AS StudentID;
@@ -197,21 +258,45 @@ BEGIN
                 RETURN;
             END
 
+            SELECT
+                @FirstName2 = COALESCE(NULLIF(s.FirstName, ''), NULLIF(e.FirstName, ''), @FirstName2),
+                @LastName2 = COALESCE(NULLIF(s.LastName, ''), NULLIF(e.LastName, ''), @LastName2),
+                @DateOfBirth2 = COALESCE(s.DateOfBirth, e.DateOfBirth, @DateOfBirth2),
+                @Gender2 = COALESCE(s.Gender, e.Gender, @Gender2),
+                @Address2 = COALESCE(s.Address, e.Address, @Address2),
+                @ContactNumber2 = COALESCE(s.ContactNumber, e.ContactNumber, @ContactNumber2),
+                @Course2 = COALESCE(s.Course, e.Course, @Course2),
+                @Year2 = COALESCE(CAST(s.Year AS VARCHAR(20)), e.Year, @Year2)
+            FROM (SELECT 1 AS SourceRow) x
+            LEFT JOIN dbo.Students s
+                ON UPPER(LTRIM(RTRIM(s.StudentNo))) = UPPER(LTRIM(RTRIM(@StudentNo2)))
+            LEFT JOIN dbo.StudentEnrollments e ON e.EnrollmentId = @EnrollmentId2;
+
             INSERT INTO dbo.Users
             (FirstName, LastName, DateOfBirth, Gender, Address, ContactNumber, Email,
              RegistrationDate, Username, PasswordHash, Salt, Role, Course, Year, StudentNo)
-            SELECT FirstName, LastName, DateOfBirth, Gender, Address, ContactNumber, @Email2,
-                   GETDATE(), @Username2, @PasswordHash2, @Salt2, 'Student', Course, Year, StudentNo
-            FROM dbo.StudentEnrollments
-            WHERE EnrollmentId = @EnrollmentId2;
+            VALUES
+            (@FirstName2, @LastName2, @DateOfBirth2, @Gender2, @Address2, @ContactNumber2, @Email2,
+             GETDATE(), @Username2, @PasswordHash2, @Salt2, 'Student', @Course2, @Year2, @StudentNo2);
 
-            INSERT INTO dbo.Students
-            (FirstName, LastName, DateOfBirth, Gender, Address, ContactNumber, Email,
-             RegistrationDate, Course, Year, StudentNo, QRCode, Status, AppRegistered)
-            SELECT FirstName, LastName, DateOfBirth, Gender, Address, ContactNumber, @Email2,
-                   CAST(GETDATE() AS DATE), Course, Year, StudentNo, StudentNo, 'Active', 1
-            FROM dbo.StudentEnrollments
-            WHERE EnrollmentId = @EnrollmentId2;
+            IF EXISTS (
+                SELECT 1 FROM dbo.Students
+                WHERE UPPER(LTRIM(RTRIM(StudentNo))) = UPPER(LTRIM(RTRIM(@StudentNo2)))
+            )
+            BEGIN
+                UPDATE dbo.Students
+                SET AppRegistered = 1, Email = @Email2
+                WHERE UPPER(LTRIM(RTRIM(StudentNo))) = UPPER(LTRIM(RTRIM(@StudentNo2)));
+            END
+            ELSE
+            BEGIN
+                INSERT INTO dbo.Students
+                (FirstName, LastName, DateOfBirth, Gender, Address, ContactNumber, Email,
+                 RegistrationDate, Course, Year, StudentNo, QRCode, Status, AppRegistered)
+                VALUES
+                (@FirstName2, @LastName2, @DateOfBirth2, @Gender2, @Address2, @ContactNumber2, @Email2,
+                 CAST(GETDATE() AS DATE), @Course2, @Year2, @StudentNo2, @StudentNo2, 'Active', 1);
+            END
 
             UPDATE dbo.StudentRegistrationRequests
             SET RequestStatus = 'Approved', ReviewedAt = GETDATE()
@@ -223,7 +308,8 @@ BEGIN
 
             COMMIT TRANSACTION;
 
-            SELECT TOP 1 *
+            SELECT TOP 1 StudentID, FirstName, LastName, Email, RegistrationDate,
+                   Username, Role, Course, Year, StudentNo
             FROM dbo.Users
             WHERE StudentNo = @StudentNo2 AND Role = 'Student';
         END
