@@ -44,14 +44,26 @@ namespace StudentViolations.API.Controllers
                 errors["lastName"] = new[] { "Last name is required." };
 
             if (string.IsNullOrWhiteSpace(model.Email))
-                errors["email"] = new[] { "Gmail address is required." };
-            else if (!Regex.IsMatch(model.Email, @"^[^@\s]+@gmail\.com$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-                errors["email"] = new[] { "Enter a valid email ending in @gmail.com." };
+                errors["email"] = new[] { "Email address is required." };
+            else if (!Regex.IsMatch(model.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                errors["email"] = new[] { "Enter a valid email address, such as name@example.com." };
 
-            if (!new[] { "BSIT", "BSHM", "BSBA" }.Contains(model.Course, StringComparer.OrdinalIgnoreCase))
-                errors["course"] = new[] { "Choose BSIT, BSHM, or BSBA." };
-            if (!new[] { "1", "2", "3", "4" }.Contains(model.Year, StringComparer.OrdinalIgnoreCase))
-                errors["year"] = new[] { "Choose a year level from 1 to 4." };
+            var enrollmentOptions = await _admissionRepository.GetEnrollments();
+            if (enrollmentOptions.Status != 200)
+                return StatusCode(enrollmentOptions.Status, new { status = enrollmentOptions.Status, message = "Course and year options could not be loaded from the enrollment database." });
+
+            var existingEnrollments = enrollmentOptions.Data ?? new List<EnrollmentModel>();
+            var courses = existingEnrollments.Select(x => x.Course?.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+            var years = existingEnrollments.Select(x => x.Year?.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+            if (courses.Count == 0)
+                errors["course"] = new[] { "No courses are available in the enrollment database." };
+            else if (!courses.Contains(model.Course, StringComparer.OrdinalIgnoreCase))
+                errors["course"] = new[] { "Choose a course already present in the enrollment database." };
+
+            if (years.Count == 0)
+                errors["year"] = new[] { "No year levels are available in the enrollment database." };
+            else if (!years.Contains(model.Year, StringComparer.OrdinalIgnoreCase))
+                errors["year"] = new[] { "Choose a year level already present in the enrollment database." };
 
             if (errors.Count > 0)
                 return BadRequest(new { status = 400, message = "Please correct the highlighted enrollment fields.", errors });
