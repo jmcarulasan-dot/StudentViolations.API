@@ -33,19 +33,45 @@ namespace StudentViolations.API.Class
             try
             {
                 await connection.OpenAsync();
+                await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted);
                 var account = await connection.QueryFirstOrDefaultAsync<LoginAccount>(@"
                     SELECT u.StudentID, u.Username, u.PasswordHash, u.Salt, u.FirstName, u.LastName,
                            u.Role, u.StudentNo, ISNULL(s.Status, 'Active') AS Status,
                            ISNULL(u.AuthenticatorEnabled, 0) AS AuthenticatorEnabled,
-                           u.AuthenticatorSecretProtected
-                    FROM dbo.Users u
+                           u.AuthenticatorSecretProtected, u.FailedSignInAttempts, u.LockoutEndUtc
+                    FROM dbo.Users u WITH (UPDLOCK, ROWLOCK)
                     LEFT JOIN dbo.Students s ON u.StudentNo = s.StudentNo
-                    WHERE u.Username = @Username;", new { Username = username });
+                    WHERE u.Username = @Username;",
+                    new { Username = username }, transaction);
 
-                if (account == null || !PasswordMatches(password, account.Salt, account.PasswordHash))
+                if (account == null)
+                {
+                    await transaction.RollbackAsync();
                     return Failure(401, "Invalid username or password.");
+                }
+
+                var now = DateTime.UtcNow;
+                if (account.LockoutEndUtc is DateTime lockedUntil && lockedUntil > now)
+                {
+                    await transaction.RollbackAsync();
+                    return Failure(423, LockoutMessage(lockedUntil));
+                }
+
+                if (!PasswordMatches(password, account.Salt, account.PasswordHash))
+                {
+                    var lockoutEnd = await RegisterFailedSignInAttemptAsync(
+                        connection, transaction, account.StudentID, account.FailedSignInAttempts, account.LockoutEndUtc);
+                    await transaction.CommitAsync();
+                    return lockoutEnd.HasValue
+                        ? Failure(423, LockoutMessage(lockoutEnd.Value))
+                        : Failure(401, "Invalid username or password.");
+                }
+
                 if (string.Equals(account.Status, "Dismissed", StringComparison.OrdinalIgnoreCase))
+                {
+                    await transaction.RollbackAsync();
                     return Failure(403, "Your account has been dismissed. Please contact the SAO office.");
+                }
 
                 var setup = !account.AuthenticatorEnabled;
                 string? provisioningUri = null;
@@ -58,12 +84,13 @@ namespace StudentViolations.API.Class
                     await connection.ExecuteAsync(@"
                         UPDATE dbo.Users SET AuthenticatorSecretProtected = @Secret
                         WHERE StudentID = @UserId AND AuthenticatorEnabled = 0;",
-                        new { Secret = account.AuthenticatorSecretProtected, UserId = account.StudentID });
+                        new { Secret = account.AuthenticatorSecretProtected, UserId = account.StudentID }, transaction);
                     var issuer = _configuration["Authenticator:Issuer"] ?? "ACLC College of Mandaue SVS";
                     provisioningUri = _authenticator.CreateProvisioningUri(account.Username, manualKey, issuer);
                 }
 
-                var challengeId = await CreateChallenge(connection, account.StudentID, setup ? "Setup" : "Login");
+                var challengeId = await CreateChallenge(connection, account.StudentID, setup ? "Setup" : "Login", transaction);
+                await transaction.CommitAsync();
                 return new ServiceResponse<AuthenticationFlow>
                 {
                     Status = 200,
@@ -98,9 +125,10 @@ namespace StudentViolations.API.Class
                 var challenge = await connection.QueryFirstOrDefaultAsync<ChallengeAccount>(@"
                     SELECT c.UserID, c.Purpose, c.ExpiresAtUtc, c.FailedAttempts, c.IsUsed,
                            u.StudentID, u.Username, u.FirstName, u.LastName, u.Role, u.StudentNo,
-                           u.AuthenticatorEnabled, u.AuthenticatorSecretProtected
+                           u.AuthenticatorEnabled, u.AuthenticatorSecretProtected,
+                           u.FailedSignInAttempts, u.LockoutEndUtc
                     FROM dbo.AuthenticatorLoginChallenges c WITH (UPDLOCK, ROWLOCK)
-                    INNER JOIN dbo.Users u ON u.StudentID = c.UserID
+                    INNER JOIN dbo.Users u WITH (UPDLOCK, ROWLOCK) ON u.StudentID = c.UserID
                     WHERE c.ChallengeHash = @Hash;",
                     new { Hash = HashChallenge(challengeId) }, transaction);
 
@@ -108,6 +136,12 @@ namespace StudentViolations.API.Class
                 {
                     await transaction.RollbackAsync();
                     return Failure(401, "This sign-in challenge is invalid or expired. Sign in again.");
+                }
+
+                if (challenge.LockoutEndUtc is DateTime lockedUntil && lockedUntil > DateTime.UtcNow)
+                {
+                    await transaction.RollbackAsync();
+                    return Failure(423, LockoutMessage(lockedUntil));
                 }
 
                 var isSetup = challenge.Purpose == "Setup";
@@ -143,7 +177,11 @@ namespace StudentViolations.API.Class
                         SET FailedAttempts = @Attempts, IsUsed = CASE WHEN @Attempts >= 5 THEN 1 ELSE IsUsed END
                         WHERE ChallengeHash = @Hash;",
                         new { Attempts = attempts, Hash = HashChallenge(challengeId) }, transaction);
+                    var lockoutEnd = await RegisterFailedSignInAttemptAsync(
+                        connection, transaction, challenge.StudentID, challenge.FailedSignInAttempts, challenge.LockoutEndUtc);
                     await transaction.CommitAsync();
+                    if (lockoutEnd.HasValue)
+                        return Failure(423, LockoutMessage(lockoutEnd.Value));
                     return Failure(401, attempts >= 5 ? "Too many incorrect codes. Sign in again." : "Incorrect authenticator code.");
                 }
 
@@ -163,6 +201,12 @@ namespace StudentViolations.API.Class
                             new { UserId = challenge.StudentID, CodeHash = AuthenticatorService.HashRecoveryCode(recovery) }, transaction);
                     }
                 }
+
+                await connection.ExecuteAsync(@"
+                    UPDATE dbo.Users
+                    SET FailedSignInAttempts = 0, LockoutEndUtc = NULL
+                    WHERE StudentID = @UserId;",
+                    new { UserId = challenge.StudentID }, transaction);
 
                 await connection.ExecuteAsync(@"
                     UPDATE dbo.AuthenticatorLoginChallenges SET IsUsed = 1
@@ -222,7 +266,7 @@ namespace StudentViolations.API.Class
             }
         }
 
-        private async Task<string> CreateChallenge(SqlConnection connection, int userId, string purpose)
+        private async Task<string> CreateChallenge(SqlConnection connection, int userId, string purpose, SqlTransaction transaction)
         {
             var challengeId = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
             await connection.ExecuteAsync(@"
@@ -232,8 +276,34 @@ namespace StudentViolations.API.Class
                 INSERT INTO dbo.AuthenticatorLoginChallenges
                     (ChallengeHash, UserID, Purpose, ExpiresAtUtc, FailedAttempts, IsUsed, CreatedAtUtc)
                 VALUES (@Hash, @UserId, @Purpose, DATEADD(MINUTE, 5, SYSUTCDATETIME()), 0, 0, SYSUTCDATETIME());",
-                new { Hash = HashChallenge(challengeId), UserId = userId, Purpose = purpose });
+                new { Hash = HashChallenge(challengeId), UserId = userId, Purpose = purpose }, transaction);
             return challengeId;
+        }
+
+        private static async Task<DateTime?> RegisterFailedSignInAttemptAsync(
+            SqlConnection connection, SqlTransaction transaction, int userId, int failedAttempts, DateTime? previousLockoutEndUtc)
+        {
+            var now = DateTime.UtcNow;
+            var attempts = previousLockoutEndUtc.HasValue && previousLockoutEndUtc.Value <= now
+                ? 1
+                : failedAttempts + 1;
+            DateTime? lockoutEndUtc = attempts >= 5 ? now.AddMinutes(3) : null;
+            await connection.ExecuteAsync(@"
+                UPDATE dbo.Users
+                SET FailedSignInAttempts = @Attempts, LockoutEndUtc = @LockoutEndUtc
+                WHERE StudentID = @UserId;",
+                new { Attempts = attempts, LockoutEndUtc = lockoutEndUtc, UserId = userId }, transaction);
+            return lockoutEndUtc;
+        }
+
+        private static string LockoutMessage(DateTime lockoutEndUtc)
+        {
+            var seconds = Math.Max(1, (int)Math.Ceiling((lockoutEndUtc - DateTime.UtcNow).TotalSeconds));
+            var minutes = seconds / 60;
+            var remainingSeconds = seconds % 60;
+            return minutes > 0
+                ? $"Too many failed sign-in attempts. Try again in {minutes}m {remainingSeconds}s."
+                : $"Too many failed sign-in attempts. Try again in {remainingSeconds}s.";
         }
 
         private static string HashChallenge(string challengeId) =>
@@ -289,6 +359,8 @@ namespace StudentViolations.API.Class
             public string Role { get; set; } = string.Empty;
             public string? StudentNo { get; set; }
             public bool AuthenticatorEnabled { get; set; }
+            public int FailedSignInAttempts { get; set; }
+            public DateTime? LockoutEndUtc { get; set; }
             public string? AuthenticatorSecretProtected { get; set; }
         }
     }
