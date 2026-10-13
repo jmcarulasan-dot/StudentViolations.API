@@ -16,15 +16,34 @@ namespace StudentViolations.API.Controllers
         private readonly IStudentRepository _studentRepository;
         private readonly IViolationRepository _violationRepository;
         private readonly INotificationRepository _notificationRepository;
+        private readonly IAuditTrailRepository _auditTrailRepository;
 
         public StudentController(
             IStudentRepository studentRepository,
             IViolationRepository violationRepository,
-            INotificationRepository notificationRepository)
+            INotificationRepository notificationRepository,
+            IAuditTrailRepository auditTrailRepository)
         {
             _studentRepository = studentRepository;
             _violationRepository = violationRepository;
             _notificationRepository = notificationRepository;
+            _auditTrailRepository = auditTrailRepository;
+        }
+
+        private async Task RecordAuditAsync(string action, string entityId, string studentNo, string remarks)
+        {
+            await _auditTrailRepository.RecordAsync(new AuditTrailEntry
+            {
+                Action = action,
+                EntityType = "Violation",
+                EntityID = entityId,
+                StudentNo = studentNo,
+                NewValue = "Pending",
+                Remarks = remarks,
+                ActorUsername = User.FindFirstValue(ClaimTypes.Name) ?? "unknown",
+                ActorRole = User.FindFirstValue(ClaimTypes.Role) ?? "Student",
+                CreatedAtUtc = DateTime.UtcNow
+            });
         }
 
         private string GetLoggedInStudentNo()
@@ -175,6 +194,8 @@ namespace StudentViolations.API.Controllers
             var result = await _violationRepository.SubmitAppeal(id, request.AppealText.Trim());
             if (result.Status != 200)
                 return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            await RecordAuditAsync("AppealSubmitted", id.ToString(), studentNo, "Student submitted an appeal for review.");
 
             await _notificationRepository.SendToRole(
                 targetRole: "SAO",

@@ -5,6 +5,10 @@ namespace StudentViolations.API.IRepository
 {
     public interface ISAORepository
     {
+        Task<ServiceResponse<List<SaoUserRecord>>> GetAllUsers();
+        Task<ServiceResponse<SaoUserRecord>> GetUserById(int studentId);
+        Task<ServiceResponse<bool>> UpdateUser(int studentId, SaoUserUpdateRequest request);
+        Task<ServiceResponse<bool>> DeleteUser(int studentId);
         Task<ServiceResponse<List<PendingDismissalModel>>> GetPendingDismissals();
         Task<ServiceResponse<List<PendingDismissalModel>>> GetDismissedStudents();
     }

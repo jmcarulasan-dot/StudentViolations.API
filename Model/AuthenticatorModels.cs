@@ -31,6 +31,8 @@ namespace StudentViolations.API.Model
         public string? StudentNo { get; set; }
         public string? Status { get; set; }
         public bool AuthenticatorEnabled { get; set; }
+        public int FailedSignInAttempts { get; set; }
+        public DateTime? LockoutEndUtc { get; set; }
         public string? AuthenticatorSecretProtected { get; set; }
     }
 }

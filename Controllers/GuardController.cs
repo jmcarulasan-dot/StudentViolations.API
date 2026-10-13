@@ -14,6 +14,7 @@ namespace StudentViolations.API.Controllers
     {
         private readonly IGuardRepository _guardRepository;
         private readonly INotificationRepository _notificationRepository;
+        private readonly IAuditTrailRepository _auditTrailRepository;
         private static readonly Dictionary<string, string> ViolationSeverityMap = new(StringComparer.OrdinalIgnoreCase)
         {
             ["No ID"] = "minor",
@@ -28,10 +29,28 @@ namespace StudentViolations.API.Controllers
 
         public GuardController(
             IGuardRepository guardRepository,
-            INotificationRepository notificationRepository)
+            INotificationRepository notificationRepository,
+            IAuditTrailRepository auditTrailRepository)
         {
             _guardRepository = guardRepository;
             _notificationRepository = notificationRepository;
+            _auditTrailRepository = auditTrailRepository;
+        }
+
+        private async Task RecordAuditAsync(string action, string entityId, string studentNo, string? newValue, string? remarks)
+        {
+            await _auditTrailRepository.RecordAsync(new AuditTrailEntry
+            {
+                Action = action,
+                EntityType = "Violation",
+                EntityID = entityId,
+                StudentNo = studentNo,
+                NewValue = newValue,
+                Remarks = remarks,
+                ActorUsername = User.FindFirstValue(ClaimTypes.Name) ?? "unknown",
+                ActorRole = User.FindFirstValue(ClaimTypes.Role) ?? "Guard",
+                CreatedAtUtc = DateTime.UtcNow
+            });
         }
 
         // GET api/guard/student/validate?studentNo=xxx
@@ -105,6 +124,13 @@ namespace StudentViolations.API.Controllers
             var recordResult = await _guardRepository.RecordViolation(violation);
             if (recordResult.Status != 200)
                 return StatusCode(recordResult.Status, recordResult);
+
+            await RecordAuditAsync(
+                "ViolationRecorded",
+                request.StudentNo,
+                request.StudentNo,
+                request.ViolationType,
+                request.Details.Trim());
 
             string studentName = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}";
 
