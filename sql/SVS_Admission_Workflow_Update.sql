@@ -163,7 +163,7 @@ BEGIN
         BEGIN
             IF EXISTS (
                 SELECT 1 FROM dbo.Users
-                WHERE UPPER(LTRIM(RTRIM(ISNULL(StudentNo, '')))) = UPPER(LTRIM(RTRIM(@StudentNo))))
+                WHERE UPPER(LTRIM(RTRIM(ISNULL(StudentNo, '')))) = UPPER(LTRIM(RTRIM(@StudentNo)))
             )
             BEGIN
                 SELECT 0 AS Success, 'An account already exists for this student ID.' AS Message;
