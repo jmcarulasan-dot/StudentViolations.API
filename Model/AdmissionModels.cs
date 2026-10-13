@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace StudentViolations.API.Model
 {
     public class EnrollmentModel
     {
-        public string ErrorMessage { get; set; }
+        [JsonIgnore]
+        public string? ErrorMessage { get; set; }
         public string StudentNo { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
