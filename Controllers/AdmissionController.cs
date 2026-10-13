@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using StudentViolations.API.IRepository;
 using StudentViolations.API.Model;
 using System.Text.RegularExpressions;
+using System.Security.Claims;
 
 namespace StudentViolations.API.Controllers
 {
@@ -13,10 +14,28 @@ namespace StudentViolations.API.Controllers
     public class AdmissionController : ControllerBase
     {
         private readonly IAdmissionRepository _admissionRepository;
+        private readonly IAuditTrailRepository _auditTrailRepository;
 
-        public AdmissionController(IAdmissionRepository admissionRepository)
+        public AdmissionController(IAdmissionRepository admissionRepository, IAuditTrailRepository auditTrailRepository)
         {
             _admissionRepository = admissionRepository;
+            _auditTrailRepository = auditTrailRepository;
+        }
+
+        private async Task RecordAuditAsync(string action, string entityType, string entityId, string? studentNo, string? newValue, string? remarks)
+        {
+            await _auditTrailRepository.RecordAsync(new AuditTrailEntry
+            {
+                Action = action,
+                EntityType = entityType,
+                EntityID = entityId,
+                StudentNo = studentNo,
+                NewValue = newValue,
+                Remarks = remarks,
+                ActorUsername = User.FindFirstValue(ClaimTypes.Name) ?? "unknown",
+                ActorRole = User.FindFirstValue(ClaimTypes.Role) ?? "Admission",
+                CreatedAtUtc = DateTime.UtcNow
+            });
         }
 
         [HttpPost("enrollments")]
@@ -69,6 +88,9 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Please correct the highlighted enrollment fields.", errors });
 
             var result = await _admissionRepository.CreateEnrollment(model);
+            if (result.Status == 200)
+                await RecordAuditAsync("EnrollmentCreated", "Student", model.StudentNo, model.StudentNo,
+                    $"{model.Course} · Year {model.Year}", $"Enrollment record created for {model.FirstName} {model.LastName}.");
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
 
@@ -90,6 +112,9 @@ namespace StudentViolations.API.Controllers
         public async Task<IActionResult> ApproveRegistration(int requestId)
         {
             var result = await _admissionRepository.ApproveRegistration(requestId);
+            if (result.Status == 200)
+                await RecordAuditAsync("RegistrationApproved", "RegistrationRequest", requestId.ToString(),
+                    result.Data?.StudentNo, result.Data?.Username, "Student account registration approved by Admissions.");
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
 
@@ -97,6 +122,9 @@ namespace StudentViolations.API.Controllers
         public async Task<IActionResult> RejectRegistration(int requestId)
         {
             var result = await _admissionRepository.RejectRegistration(requestId);
+            if (result.Status == 200)
+                await RecordAuditAsync("RegistrationRejected", "RegistrationRequest", requestId.ToString(),
+                    null, null, "Student account registration rejected by Admissions.");
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
 
@@ -111,6 +139,8 @@ namespace StudentViolations.API.Controllers
         public async Task<IActionResult> SignClearance(string studentNo)
         {
             var result = await _admissionRepository.SignClearance(studentNo);
+            if (result.Status == 200)
+                await RecordAuditAsync("ClearanceSigned", "Student", studentNo, studentNo, "Signed", "Student clearance signed by Admissions.");
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
     }
