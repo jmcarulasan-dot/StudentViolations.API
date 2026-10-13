@@ -133,6 +133,12 @@ namespace StudentViolations.API.Controllers
             if (request == null)
                 return BadRequest(new { status = 400, message = "Account information is required." });
 
+            request.Email = request.Email?.Trim();
+            if (string.IsNullOrWhiteSpace(request.Email))
+                return BadRequest(new { status = 400, message = "Please correct the highlighted account field.", errors = new { email = new[] { "Email address is required." } } });
+            if (!Regex.IsMatch(request.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                return BadRequest(new { status = 400, message = "Please correct the highlighted account field.", errors = new { email = new[] { "Enter a valid email address, such as name@example.com." } } });
+
             if (!string.IsNullOrWhiteSpace(request.Gender) &&
                 !ValidGenders.Contains(request.Gender.Trim(), StringComparer.OrdinalIgnoreCase))
                 return BadRequest(new { status = 400, message = "Gender must be male or female." });
