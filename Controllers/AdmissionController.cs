@@ -146,8 +146,10 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "Student number format is invalid. Use the format ABC-00-0000-ABC123.", data = false });
 
             var eligibility = await _admissionRepository.CanSignClearance(studentNo);
+            if (eligibility.Status == 404)
+                return NotFound(new { status = 404, message = eligibility.Message, data = false });
             if (eligibility.Status != 200 || eligibility.Data != true)
-                return StatusCode(eligibility.Status, new { status = eligibility.Status, message = eligibility.Message, data = false });
+                return BadRequest(new { status = 400, message = eligibility.Message, data = false });
 
             var result = await _admissionRepository.SignClearance(studentNo);
             if (result.Status == 200)
