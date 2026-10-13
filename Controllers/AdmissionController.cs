@@ -125,16 +125,30 @@ namespace StudentViolations.API.Controllers
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
 
+        private static bool IsValidStudentNumber(string? studentNo) =>
+            !string.IsNullOrWhiteSpace(studentNo) &&
+            Regex.IsMatch(studentNo.Trim(), @"^[A-Za-z0-9]{3}-\\d{2}-\\d{4}-[A-Za-z0-9]{6}$");
+
         [HttpGet("students/{studentNo}/clearance")]
         public async Task<IActionResult> CheckClearance(string studentNo)
         {
+            if (!IsValidStudentNumber(studentNo))
+                return BadRequest(new { status = 400, message = "Student number format is invalid. Use the format ABC-00-0000-ABC123.", canSign = false });
+
             var result = await _admissionRepository.CanSignClearance(studentNo);
-            return Ok(new { status = result.Status, message = result.Message, canSign = result.Data });
+            return StatusCode(result.Status, new { status = result.Status, message = result.Message, canSign = result.Data });
         }
 
         [HttpPost("students/{studentNo}/clearance/sign")]
         public async Task<IActionResult> SignClearance(string studentNo)
         {
+            if (!IsValidStudentNumber(studentNo))
+                return BadRequest(new { status = 400, message = "Student number format is invalid. Use the format ABC-00-0000-ABC123.", data = false });
+
+            var eligibility = await _admissionRepository.CanSignClearance(studentNo);
+            if (eligibility.Status != 200 || eligibility.Data != true)
+                return StatusCode(eligibility.Status, new { status = eligibility.Status, message = eligibility.Message, data = false });
+
             var result = await _admissionRepository.SignClearance(studentNo);
             if (result.Status == 200)
                 await RecordAuditAsync("ClearanceSigned", "Student", studentNo, studentNo, "Signed", "Student clearance signed by Admissions.");
