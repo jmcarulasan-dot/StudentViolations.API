@@ -22,24 +22,39 @@ namespace StudentViolations.API.Controllers
         [HttpPost("enrollments")]
         public async Task<IActionResult> CreateEnrollment([FromBody] EnrollmentModel model)
         {
-            if (model == null || string.IsNullOrWhiteSpace(model.StudentNo))
+            if (model == null)
                 return BadRequest(new { status = 400, message = "Enrollment information is required." });
 
-            model.StudentNo = model.StudentNo.Trim().ToUpperInvariant();
-            model.FirstName = model.FirstName?.Trim();
-            model.LastName = model.LastName?.Trim();
-            model.Email = model.Email?.Trim().ToLowerInvariant();
-            model.Course = model.Course?.Trim().ToUpperInvariant();
-            model.Year = model.Year?.Trim();
+            model.StudentNo = model.StudentNo?.Trim().ToUpperInvariant() ?? "";
+            model.FirstName = model.FirstName?.Trim() ?? "";
+            model.LastName = model.LastName?.Trim() ?? "";
+            model.Email = model.Email?.Trim().ToLowerInvariant() ?? "";
+            model.Course = model.Course?.Trim().ToUpperInvariant() ?? "";
+            model.Year = model.Year?.Trim() ?? "";
 
-            if (!Regex.IsMatch(model.StudentNo, @"^[A-Za-z0-9]{3}-\d{2}-\d{4}-[A-Za-z0-9]{6}$"))
-                return BadRequest(new { status = 400, message = "Invalid student number format." });
+            var errors = new Dictionary<string, string[]>();
+            if (string.IsNullOrWhiteSpace(model.StudentNo))
+                errors["studentNo"] = new[] { "Student number is required." };
+            else if (!Regex.IsMatch(model.StudentNo, @"^[A-Za-z0-9]{3}-\d{2}-\d{4}-[A-Za-z0-9]{6}$"))
+                errors["studentNo"] = new[] { "Use the format ABC-00-0000-ABC123." };
 
-            if (string.IsNullOrWhiteSpace(model.FirstName) || string.IsNullOrWhiteSpace(model.LastName) ||
-                string.IsNullOrWhiteSpace(model.Email) ||
-                !Regex.IsMatch(model.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$") ||
-                string.IsNullOrWhiteSpace(model.Course) || string.IsNullOrWhiteSpace(model.Year))
-                return BadRequest(new { status = 400, message = "Complete enrollment information is required." });
+            if (string.IsNullOrWhiteSpace(model.FirstName))
+                errors["firstName"] = new[] { "First name is required." };
+            if (string.IsNullOrWhiteSpace(model.LastName))
+                errors["lastName"] = new[] { "Last name is required." };
+
+            if (string.IsNullOrWhiteSpace(model.Email))
+                errors["email"] = new[] { "Gmail address is required." };
+            else if (!Regex.IsMatch(model.Email, @"^[^@\s]+@gmail\.com$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                errors["email"] = new[] { "Enter a valid email ending in @gmail.com." };
+
+            if (!new[] { "BSIT", "BSHM", "BSBA" }.Contains(model.Course, StringComparer.OrdinalIgnoreCase))
+                errors["course"] = new[] { "Choose BSIT, BSHM, or BSBA." };
+            if (!new[] { "1", "2", "3", "4" }.Contains(model.Year, StringComparer.OrdinalIgnoreCase))
+                errors["year"] = new[] { "Choose a year level from 1 to 4." };
+
+            if (errors.Count > 0)
+                return BadRequest(new { status = 400, message = "Please correct the highlighted enrollment fields.", errors });
 
             var result = await _admissionRepository.CreateEnrollment(model);
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
