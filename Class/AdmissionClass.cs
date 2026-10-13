@@ -117,16 +117,31 @@ namespace StudentViolations.API.Class
         public async Task<ServiceResponse<bool>> CanSignClearance(string studentNo)
         {
             using var connection = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
-            var p = new DynamicParameters();
-            p.Add("@statementType", "CANCLEARANCE");
-            p.Add("@StudentNo", studentNo);
-            var result = await connection.QueryFirstOrDefaultAsync<dynamic>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
+            var student = await connection.QueryFirstOrDefaultAsync<ClearanceEligibility>(@"
+                SELECT TOP (1) Status, AppRegistered
+                FROM dbo.Students
+                WHERE StudentNo = @StudentNo;",
+                new { StudentNo = studentNo });
+
+            if (student == null)
+                return new ServiceResponse<bool> { Status = 404, Message = "Student not found.", Data = false };
+
+            var eligible = string.Equals(student.Status, "Active", StringComparison.OrdinalIgnoreCase)
+                && student.AppRegistered;
             return new ServiceResponse<bool>
             {
                 Status = 200,
-                Message = (string?)result?.Message ?? "Clearance status checked.",
-                Data = result != null && (int)result.CanSign == 1
+                Message = eligible
+                    ? "Student is eligible for clearance signing."
+                    : "Student is not eligible for clearance signing. Check that the student is active and has completed SVS registration.",
+                Data = eligible
             };
+        }
+
+        private sealed class ClearanceEligibility
+        {
+            public string? Status { get; set; }
+            public bool AppRegistered { get; set; }
         }
 
         public async Task<ServiceResponse<bool>> SignClearance(string studentNo)
