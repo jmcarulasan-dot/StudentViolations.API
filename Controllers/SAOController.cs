@@ -67,6 +67,108 @@ namespace StudentViolations.API.Controllers
             return Ok(new { status = 200, message = "Audit history retrieved successfully.", total = result.Data?.Count ?? 0, data = result.Data });
         }
 
+        // GET api/sao/users
+        [HttpGet("users")]
+        public async Task<IActionResult> GetUsers()
+        {
+            var result = await _saoRepository.GetAllUsers();
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            var users = (result.Data ?? new List<SaoUserRecord>())
+                .Where(user => !string.Equals(user.Role, "Guidance", StringComparison.OrdinalIgnoreCase))
+                .Select(user => new
+                {
+                    id = user.StudentID,
+                    username = user.Username,
+                    name = $"{user.FirstName} {user.LastName}".Trim(),
+                    student_no = user.StudentNo,
+                    email = user.Email,
+                    role = user.Role,
+                    gender = user.Gender,
+                    course = user.Course,
+                    year = user.Year,
+                    contact_number = user.ContactNumber,
+                    profile_photo = user.ProfilePhoto,
+                    registration_date = user.RegistrationDate
+                }).ToList();
+
+            return Ok(new { status = 200, message = "Accounts retrieved successfully.", total = users.Count, data = users });
+        }
+
+        // GET api/sao/users/{id}
+        [HttpGet("users/{id:int}")]
+        public async Task<IActionResult> GetUserById(int id)
+        {
+            var result = await _saoRepository.GetUserById(id);
+            if (result.Status != 200 || result.Data == null)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            var user = result.Data;
+            return Ok(new
+            {
+                status = 200,
+                message = "Account retrieved successfully.",
+                data = new
+                {
+                    id = user.StudentID,
+                    username = user.Username,
+                    first_name = user.FirstName,
+                    last_name = user.LastName,
+                    email = user.Email,
+                    role = user.Role,
+                    gender = user.Gender,
+                    course = user.Course,
+                    year = user.Year,
+                    address = user.Address,
+                    contact_number = user.ContactNumber
+                }
+            });
+        }
+
+        // PUT api/sao/users/{id}
+        [HttpPut("users/{id:int}")]
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] SaoUserUpdateRequest request)
+        {
+            if (request == null)
+                return BadRequest(new { status = 400, message = "Account information is required." });
+
+            if (!string.IsNullOrWhiteSpace(request.Gender) &&
+                !ValidGenders.Contains(request.Gender.Trim(), StringComparer.OrdinalIgnoreCase))
+                return BadRequest(new { status = 400, message = "Gender must be male or female." });
+
+            var previous = await _saoRepository.GetUserById(id);
+            if (previous.Status != 200 || previous.Data == null)
+                return StatusCode(previous.Status, new { status = previous.Status, message = previous.Message });
+
+            var result = await _saoRepository.UpdateUser(id, request);
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            await RecordAuditAsync("UserUpdated", "User", id.ToString(), previous.Data.StudentNo,
+                null, null, $"Account details updated for {previous.Data.Username}.");
+
+            return Ok(new { status = 200, message = result.Message });
+        }
+
+        // DELETE api/sao/users/{id}
+        [HttpDelete("users/{id:int}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var previous = await _saoRepository.GetUserById(id);
+            if (previous.Status != 200 || previous.Data == null)
+                return StatusCode(previous.Status, new { status = previous.Status, message = previous.Message });
+
+            var result = await _saoRepository.DeleteUser(id);
+            if (result.Status != 200)
+                return StatusCode(result.Status, new { status = result.Status, message = result.Message });
+
+            await RecordAuditAsync("UserDeleted", "User", id.ToString(), previous.Data.StudentNo,
+                previous.Data.Username, null, $"Account deleted for {previous.Data.Username}.");
+
+            return Ok(new { status = 200, message = result.Message });
+        }
+
         // GET api/sao/violations
         [HttpGet("violations")]
         public async Task<IActionResult> GetAllViolations()
@@ -305,6 +407,7 @@ namespace StudentViolations.API.Controllers
                     student_no = studentResult.Data.StudentNo,
                     name = $"{studentResult.Data.FirstName} {studentResult.Data.LastName}",
                     email = studentResult.Data.Email,
+                    profile_photo = studentResult.Data.ProfilePhoto,
                     contact_number = studentResult.Data.ContactNumber,
                     gender = studentResult.Data.Gender,
                     address = studentResult.Data.Address,
