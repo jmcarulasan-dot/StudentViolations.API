@@ -250,10 +250,15 @@ namespace StudentViolations.API.Class
                     }
                 };
             }
-            catch (Exception ex)
+            catch (CryptographicException)
             {
                 await transaction.RollbackAsync();
-                return Failure(500, $"Authenticator verification error: {ex.Message}");
+                return Failure(409, "This account's authenticator setup key is unavailable on this API instance. Ask an administrator to reset MFA, then sign in again to enroll a new authenticator.");
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                return Failure(500, "Authenticator verification failed because of a server error.");
             }
         }
 
