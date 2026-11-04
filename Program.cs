@@ -46,7 +46,10 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddDataProtection().SetApplicationName("StudentViolations.API");
+// Keep Data Protection keys in a folder on the server so MFA secrets can still be decrypted after restarts/redeploys
+builder.Services.AddDataProtection()
+    .SetApplicationName("StudentViolations.API")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "keys")));
 builder.Services.AddScoped<AuthenticatorService>();
 builder.Services.AddRateLimiter(options =>
 {
