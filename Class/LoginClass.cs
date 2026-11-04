@@ -78,13 +78,21 @@ namespace StudentViolations.API.Class
                 string? manualKey = null;
                 if (setup)
                 {
-                    // Replace any unconfirmed enrollment with a fresh secret on a new password login.
-                    manualKey = _authenticator.GenerateSecret();
-                    account.AuthenticatorSecretProtected = _authenticator.Protect(manualKey);
-                    await connection.ExecuteAsync(@"
-                        UPDATE dbo.Users SET AuthenticatorSecretProtected = @Secret
-                        WHERE StudentID = @UserId AND AuthenticatorEnabled = 0;",
-                        new { Secret = account.AuthenticatorSecretProtected, UserId = account.StudentID }, transaction);
+                    // Keep a pending secret stable across sign-in retries. Replacing it here
+                    // invalidates the QR code already scanned into the authenticator app.
+                    if (string.IsNullOrWhiteSpace(account.AuthenticatorSecretProtected))
+                    {
+                        manualKey = _authenticator.GenerateSecret();
+                        account.AuthenticatorSecretProtected = _authenticator.Protect(manualKey);
+                        await connection.ExecuteAsync(@"
+                            UPDATE dbo.Users SET AuthenticatorSecretProtected = @Secret
+                            WHERE StudentID = @UserId AND AuthenticatorEnabled = 0;",
+                            new { Secret = account.AuthenticatorSecretProtected, UserId = account.StudentID }, transaction);
+                    }
+                    else
+                    {
+                        manualKey = _authenticator.Unprotect(account.AuthenticatorSecretProtected);
+                    }
                     var issuer = _configuration["Authenticator:Issuer"] ?? "ACLC College of Mandaue SVS";
                     provisioningUri = _authenticator.CreateProvisioningUri(account.Username, manualKey, issuer);
                 }
