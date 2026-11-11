@@ -31,6 +31,8 @@ namespace StudentViolations.API.Controllers
                 return BadRequest(new { status = 400, message = "First and last name are required." });
             if (model.DateOfBirth == null)
                 return BadRequest(new { status = 400, message = "Date of birth is required." });
+            if (model.DateOfBirth.Value.Date > DateTime.UtcNow.Date)
+                return BadRequest(new { status = 400, message = "Date of birth cannot be in the future." });
             if (string.IsNullOrWhiteSpace(model.Gender) ||
                 !(model.Gender.Equals("male", StringComparison.OrdinalIgnoreCase) || model.Gender.Equals("female", StringComparison.OrdinalIgnoreCase)))
                 return BadRequest(new { status = 400, message = "Choose a valid gender." });
