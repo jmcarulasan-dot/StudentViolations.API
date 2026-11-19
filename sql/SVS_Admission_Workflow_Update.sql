@@ -1,8 +1,8 @@
 USE [StudentViolations]
 GO
 /* ============================================================
-   ADMISSION WORKFLOW
-   Enrollment -> Student App Registration ->a Admission Verification
+   SAO STUDENT SERVICES WORKFLOW
+   Enrollment -> Student App Registration -> SAO Verification
    -> Account/QR Creation -> Email -> Clearance
    ============================================================ */
 
@@ -201,7 +201,7 @@ BEGIN
             (NULL, @StudentNo, @FirstName, @LastName, @DateOfBirth, @Gender, @Address, @ContactNumber,
              @Email, @Course, @Year, @Username, @PasswordHash, @Salt);
 
-            SELECT 1 AS Success, 'Registration request submitted for Admission approval.' AS Message;
+            SELECT 1 AS Success, 'Registration request submitted for SAO approval.' AS Message;
         END
 
         ELSE IF (@statementType = 'GETREGISTRATIONREQUESTS')

@@ -75,9 +75,8 @@ builder.Services.AddSwaggerGen(c =>
     c.OrderActionsBy(api => api.GroupName switch
     {
         "Authentication" => "1",
-        "Admission" => "2",
         "Guard" => "3",
-        "SAO" => "4",
+        "SAO" => "2",
         "Student" => "5",
         "Notifications" => "6",
         _ => "7"

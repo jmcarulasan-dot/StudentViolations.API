@@ -79,7 +79,7 @@ namespace StudentViolations.API.Class
             var result = await connection.QueryFirstOrDefaultAsync<dynamic>("SP_ADMISSION", p, commandType: CommandType.StoredProcedure);
             if (result == null || (int)result.Success != 1)
                 return new ServiceResponse<bool> { Status = 400, Message = (string?)result?.Message ?? "Registration request was rejected.", Data = false };
-            return new ServiceResponse<bool> { Status = 200, Message = "Registration request submitted for Admission verification.", Data = true };
+            return new ServiceResponse<bool> { Status = 200, Message = "Registration request submitted for SAO approval.", Data = true };
         }
 
         public async Task<ServiceResponse<UserModel>> ApproveRegistration(int requestId)
@@ -95,7 +95,7 @@ namespace StudentViolations.API.Class
             var emailSent = await _emailRepository.SendEmailAsync(
                 user.Email,
                 "SVS Account Approved",
-                $"<p>Hello {user.FirstName},</p><p>Your Student Violations System account has been verified by Admission and successfully created.</p><p>You may now log in to the SVS mobile application.</p><p>Username: <b>{user.Username}</b></p>");
+                $"<p>Hello {user.FirstName},</p><p>Your Student Violations System account has been verified by the SAO and successfully created.</p><p>You may now log in to the SVS mobile application.</p><p>Username: <b>{user.Username}</b></p>");
 
             return new ServiceResponse<UserModel>
             {

@@ -9,8 +9,8 @@ namespace StudentViolations.API.Controllers
 {
     [ApiController]
     [Route("api/admission")]
-    [Authorize(Roles = "Admission")]
-    [ApiExplorerSettings(GroupName = "Admission")]
+    [Authorize(Roles = "SAO")]
+    [ApiExplorerSettings(GroupName = "SAO")]
     public class AdmissionController : ControllerBase
     {
         private readonly IAdmissionRepository _admissionRepository;
@@ -41,7 +41,7 @@ namespace StudentViolations.API.Controllers
                 NewValue = newValue,
                 Remarks = remarks,
                 ActorUsername = User.FindFirstValue(ClaimTypes.Name) ?? "unknown",
-                ActorRole = User.FindFirstValue(ClaimTypes.Role) ?? "Admission",
+                ActorRole = User.FindFirstValue(ClaimTypes.Role) ?? "SAO",
                 CreatedAtUtc = DateTime.UtcNow
             });
         }
@@ -111,7 +111,7 @@ namespace StudentViolations.API.Controllers
             var result = await _admissionRepository.ApproveRegistration(requestId);
             if (result.Status == 200)
                 await RecordAuditAsync("RegistrationApproved", "RegistrationRequest", requestId.ToString(),
-                    result.Data?.StudentNo, result.Data?.Username, "Student account registration approved by Admissions.");
+                    result.Data?.StudentNo, result.Data?.Username, "Student account registration approved by the SAO.");
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
 
@@ -121,7 +121,7 @@ namespace StudentViolations.API.Controllers
             var result = await _admissionRepository.RejectRegistration(requestId);
             if (result.Status == 200)
                 await RecordAuditAsync("RegistrationRejected", "RegistrationRequest", requestId.ToString(),
-                    null, null, "Student account registration rejected by Admissions.");
+                    null, null, "Student account registration rejected by the SAO.");
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
 
@@ -153,7 +153,7 @@ namespace StudentViolations.API.Controllers
 
             var result = await _admissionRepository.SignClearance(studentNo);
             if (result.Status == 200)
-                await RecordAuditAsync("ClearanceSigned", "Student", studentNo, studentNo, "Signed", "Student clearance signed by Admissions.");
+                await RecordAuditAsync("ClearanceSigned", "Student", studentNo, studentNo, "Signed", "Student clearance signed by the SAO.");
             return StatusCode(result.Status, new { status = result.Status, message = result.Message, data = result.Data });
         }
     }
